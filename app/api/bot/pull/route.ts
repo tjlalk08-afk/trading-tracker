@@ -9,7 +9,6 @@ export async function GET(req: Request) {
     const token = (url.searchParams.get("token") ?? "").trim();
     const expected = (process.env.BOT_API_TOKEN ?? "").trim();
 
-    // If token missing or doesn't match
     if (!expected || token !== expected) {
       return NextResponse.json(
         { ok: false, error: "unauthorized" },
@@ -25,26 +24,25 @@ export async function GET(req: Request) {
       );
     }
 
-    // Pull data from your bot dashboard
     const r = await fetch(botUrl, { cache: "no-store" });
-    const text = await r.text();
+    const json = await r.json();
 
-    if (!r.ok) {
+    if (!r.ok || !json?.ok) {
       return NextResponse.json(
-        { ok: false, error: `bot fetch failed: ${r.status}`, body: text },
+        { ok: false, error: "bot fetch failed", body: json },
         { status: 502 }
       );
     }
 
-    let data: any;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return NextResponse.json(
-        { ok: false, error: "bot returned non-json", body: text },
-        { status: 502 }
-      );
-    }
+    const data = json.data ?? {};
+
+    const cash = Number(data.cash ?? 0);
+    const equity = Number(data.equity ?? 0);
+    const openPnl = Number(data.open_pnl ?? 0);
+    const realizedPnl = Number(data.realized_pnl ?? 0);
+    const positionsCount = data.positions
+      ? Object.keys(data.positions).length
+      : 0;
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,8 +50,13 @@ export async function GET(req: Request) {
     );
 
     const { error } = await supabase.from("bot_snapshots").insert({
-      ts: new Date().toISOString(),
-      raw: data,
+      ts: json.ts ?? new Date().toISOString(),
+      equity,
+      cash,
+      open_pnl: openPnl,
+      realized_pnl: realizedPnl,
+      positions_count: positionsCount,
+      raw: json,
     });
 
     if (error) {
