@@ -18,38 +18,31 @@ function normString(v: unknown) {
   const s = typeof v === "string" ? v.trim() : "";
   return s.length ? s : null;
 }
-
 function normUpper(v: unknown) {
   const s = typeof v === "string" ? v.trim().toUpperCase() : "";
   return s.length ? s : null;
 }
-
 function normNumber(v: unknown) {
   if (typeof v === "number") return v;
-  if (typeof v === "string" && v.trim() && !Number.isNaN(Number(v))) {
-    return Number(v);
-  }
+  if (typeof v === "string" && v.trim() && !Number.isNaN(Number(v))) return Number(v);
   return null;
 }
-
 function toIsoOrNow(v: unknown) {
   const s = normString(v);
   if (!s) return new Date().toISOString();
   const d = new Date(s);
-  return Number.isNaN(d.getTime())
-    ? new Date().toISOString()
-    : d.toISOString();
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
 }
 
 export async function POST(req: Request) {
-  // ===== TOKEN CHECK =====
+  // ===== TOKEN CHECK (WITH DEBUG LENGTHS) =====
   const url = new URL(req.url);
   const token = (url.searchParams.get("token") ?? "").trim();
   const expected = (process.env.TRADINGVIEW_WEBHOOK_TOKEN ?? "").trim();
 
   if (!expected || token !== expected) {
     return NextResponse.json(
-      { ok: false, error: "bad token" },
+      { ok: false, error: "bad token", tokenLen: token.length, expectedLen: expected.length },
       { status: 401 }
     );
   }
@@ -57,19 +50,13 @@ export async function POST(req: Request) {
   // ===== PARSE BODY =====
   const payload = (await req.json().catch(() => null)) as TvPayload | null;
   if (!payload || typeof payload !== "object") {
-    return NextResponse.json(
-      { ok: false, error: "invalid json" },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 });
   }
 
   // Optional Pine secret check
-  const expectedSecret = process.env.TRADINGVIEW_PINE_SECRET;
-  if (expectedSecret && payload.secret !== expectedSecret) {
-    return NextResponse.json(
-      { ok: false, error: "bad secret" },
-      { status: 401 }
-    );
+  const expectedSecret = (process.env.TRADINGVIEW_PINE_SECRET ?? "").trim();
+  if (expectedSecret && (payload.secret ?? "").trim() !== expectedSecret) {
+    return NextResponse.json({ ok: false, error: "bad secret" }, { status: 401 });
   }
 
   // ===== NORMALIZE =====
@@ -88,18 +75,14 @@ export async function POST(req: Request) {
   );
 
   // ===== ALWAYS STORE RAW SIGNAL =====
-  const { error: signalError } = await supabase.from("tv_signals").insert({
-    symbol,
-    action,
-    timeframe,
-    raw_payload: payload,
-  });
-
-  if (signalError) {
-    return NextResponse.json(
-      { ok: false, error: signalError.message },
-      { status: 500 }
-    );
+  {
+    const { error } = await supabase.from("tv_signals").insert({
+      symbol,
+      action,
+      timeframe,
+      raw_payload: payload,
+    });
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
   // Only build trades from EXEC signals
@@ -109,7 +92,7 @@ export async function POST(req: Request) {
 
   // ===== ENTRY =====
   if (action === "LONG" || action === "SHORT") {
-    const { data: open } = await supabase
+    const { data: open, error: openErr } = await supabase
       .from("tv_trades")
       .select("id")
       .eq("strategy", strategy)
@@ -120,23 +103,19 @@ export async function POST(req: Request) {
       .limit(1)
       .maybeSingle();
 
+    if (openErr) return NextResponse.json({ ok: false, error: openErr.message }, { status: 500 });
+
     if (!open) {
       const { error } = await supabase.from("tv_trades").insert({
         strategy,
         symbol,
         timeframe,
-        direction: action,
+        direction: action, // LONG / SHORT
         entry_time: eventTime,
-        entry_price: price,
+        entry_price: price, // can be null
         entry_signal_id: signalId,
       });
-
-      if (error) {
-        return NextResponse.json(
-          { ok: false, error: error.message },
-          { status: 500 }
-        );
-      }
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true });
@@ -144,7 +123,7 @@ export async function POST(req: Request) {
 
   // ===== CLOSE =====
   if (action === "CLOSE") {
-    const { data: open } = await supabase
+    const { data: open, error: openErr } = await supabase
       .from("tv_trades")
       .select("*")
       .eq("strategy", strategy)
@@ -154,6 +133,8 @@ export async function POST(req: Request) {
       .order("entry_time", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (openErr) return NextResponse.json({ ok: false, error: openErr.message }, { status: 500 });
 
     if (open) {
       const entry = normNumber(open.entry_price);
@@ -179,12 +160,7 @@ export async function POST(req: Request) {
         })
         .eq("id", open.id);
 
-      if (error) {
-        return NextResponse.json(
-          { ok: false, error: error.message },
-          { status: 500 }
-        );
-      }
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true });
