@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 type TvPayload = {
-  type?: string; // EXEC / STATS (may be missing)
+  type?: string;
   secret?: string;
   strategy?: string;
   symbol?: string;
@@ -26,7 +26,9 @@ function normUpper(v: unknown) {
 
 function normNumber(v: unknown) {
   if (typeof v === "number") return v;
-  if (typeof v === "string" && v.trim() && !Number.isNaN(Number(v))) return Number(v);
+  if (typeof v === "string" && v.trim() && !Number.isNaN(Number(v))) {
+    return Number(v);
+  }
   return null;
 }
 
@@ -34,30 +36,43 @@ function toIsoOrNow(v: unknown) {
   const s = normString(v);
   if (!s) return new Date().toISOString();
   const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+  return Number.isNaN(d.getTime())
+    ? new Date().toISOString()
+    : d.toISOString();
 }
 
 export async function POST(req: Request) {
-  // 1) Token check
+  // ===== TOKEN CHECK =====
   const url = new URL(req.url);
-  const token = url.searchParams.get("token");
-  if (token !== process.env.TRADINGVIEW_WEBHOOK_TOKEN) {
-    return NextResponse.json({ ok: false, error: "bad token" }, { status: 401 });
+  const token = (url.searchParams.get("token") ?? "").trim();
+  const expected = (process.env.TRADINGVIEW_WEBHOOK_TOKEN ?? "").trim();
+
+  if (!expected || token !== expected) {
+    return NextResponse.json(
+      { ok: false, error: "bad token" },
+      { status: 401 }
+    );
   }
 
-  // 2) Parse JSON
+  // ===== PARSE BODY =====
   const payload = (await req.json().catch(() => null)) as TvPayload | null;
   if (!payload || typeof payload !== "object") {
-    return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: "invalid json" },
+      { status: 400 }
+    );
   }
 
-  // 3) Optional Pine secret
+  // Optional Pine secret check
   const expectedSecret = process.env.TRADINGVIEW_PINE_SECRET;
   if (expectedSecret && payload.secret !== expectedSecret) {
-    return NextResponse.json({ ok: false, error: "bad secret" }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: "bad secret" },
+      { status: 401 }
+    );
   }
 
-  // 4) Normalize
+  // ===== NORMALIZE =====
   const type = normUpper(payload.type) ?? "EXEC";
   const strategy = normString(payload.strategy) ?? "UNKNOWN";
   const symbol = normString(payload.symbol);
@@ -72,7 +87,7 @@ export async function POST(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // 5) Always store raw signal
+  // ===== ALWAYS STORE RAW SIGNAL =====
   const { error: signalError } = await supabase.from("tv_signals").insert({
     symbol,
     action,
@@ -81,15 +96,14 @@ export async function POST(req: Request) {
   });
 
   if (signalError) {
-    return NextResponse.json({ ok: false, error: signalError.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: signalError.message },
+      { status: 500 }
+    );
   }
 
-  // Only process EXEC trades
-  if (type !== "EXEC") {
-    return NextResponse.json({ ok: true });
-  }
-
-  if (!symbol || !timeframe || !action) {
+  // Only build trades from EXEC signals
+  if (type !== "EXEC" || !symbol || !timeframe || !action) {
     return NextResponse.json({ ok: true });
   }
 
@@ -118,7 +132,10 @@ export async function POST(req: Request) {
       });
 
       if (error) {
-        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+        return NextResponse.json(
+          { ok: false, error: error.message },
+          { status: 500 }
+        );
       }
     }
 
@@ -163,7 +180,10 @@ export async function POST(req: Request) {
         .eq("id", open.id);
 
       if (error) {
-        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+        return NextResponse.json(
+          { ok: false, error: error.message },
+          { status: 500 }
+        );
       }
     }
 
