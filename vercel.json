@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/bot/pull/cron",
+      "schedule": "*/1 * * * *"
+    }
+  ]
+}
