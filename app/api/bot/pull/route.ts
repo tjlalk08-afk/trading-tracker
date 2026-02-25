@@ -13,7 +13,6 @@ const num0 = (v: any) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-// A simple stable hash/string for deduping events (so repeated pulls don't spam fills)
 const eventKey = (parts: Array<string | number | null | undefined>) =>
   parts.map((p) => (p === null || p === undefined ? "" : String(p))).join("|");
 
@@ -29,7 +28,10 @@ export async function GET(req: Request) {
 
     const botUrl = process.env.BOT_DASHBOARD_URL;
     if (!botUrl) {
-      return NextResponse.json({ ok: false, error: "BOT_DASHBOARD_URL missing" }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "BOT_DASHBOARD_URL missing" },
+        { status: 500 }
+      );
     }
 
     const r = await fetch(botUrl, { cache: "no-store" });
@@ -39,7 +41,10 @@ export async function GET(req: Request) {
       json = await r.json();
     } catch {
       const text = await r.text().catch(() => "");
-      return NextResponse.json({ ok: false, error: "bot returned non-json", body: text }, { status: 502 });
+      return NextResponse.json(
+        { ok: false, error: "bot returned non-json", body: text },
+        { status: 502 }
+      );
     }
 
     if (!r.ok || !json?.ok) {
@@ -56,18 +61,20 @@ export async function GET(req: Request) {
     const openPnl = asNum(data.open_pnl);
     const realizedPnl = asNum(data.realized_pnl);
 
-    // positions is an object in your JSON ({}), so count keys
-    const positionsObj = data.positions && typeof data.positions === "object" ? data.positions : {};
+    const positionsObj =
+      data.positions && typeof data.positions === "object"
+        ? data.positions
+        : {};
     const positionsCount = Object.keys(positionsObj).length;
 
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
     const tsIso = (json.ts ?? new Date().toISOString()) as string;
 
-    // 1) Insert snapshot
+    // 1️⃣ Insert snapshot
     const { error: snapErr } = await supabase.from("bot_snapshots").insert({
       ts: tsIso,
       equity,
@@ -82,7 +89,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: snapErr.message }, { status: 500 });
     }
 
-    // 2) Load previous snapshot so we can diff positions
+    // 2️⃣ Load previous snapshot
     const { data: prevRows, error: prevErr } = await supabase
       .from("bot_snapshots")
       .select("raw, ts")
@@ -93,17 +100,22 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: prevErr.message }, { status: 500 });
     }
 
-    const prevRaw = prevRows?.[1]?.raw ?? null; // second newest = previous
+    const prevRaw = prevRows?.[1]?.raw ?? null;
     const prevData = prevRaw?.data ?? {};
     const prevPositions =
-      prevData.positions && typeof prevData.positions === "object" ? prevData.positions : {};
+      prevData.positions && typeof prevData.positions === "object"
+        ? prevData.positions
+        : {};
 
     const currPositions =
-      data.positions && typeof data.positions === "object" ? data.positions : {};
+      data.positions && typeof data.positions === "object"
+        ? data.positions
+        : {};
 
-    // 3) Diff positions -> write synthetic fills into bot_fills
-    // Dedup: don’t insert the same event twice if pulls repeat while nothing changes.
-    const keys = new Set([...Object.keys(prevPositions), ...Object.keys(currPositions)]);
+    const keys = new Set([
+      ...Object.keys(prevPositions),
+      ...Object.keys(currPositions),
+    ]);
 
     for (const k of keys) {
       const prev = (prevPositions as any)[k] ?? null;
@@ -112,28 +124,15 @@ export async function GET(req: Request) {
       const prevQty = prev ? num0(prev.qty) : 0;
       const currQty = curr ? num0(curr.qty) : 0;
 
-      // Prefer option_symbol so options are unique
       const symbol = (curr?.option_symbol ?? prev?.option_symbol ?? k) as string;
-
       const side = curr?.side ?? prev?.side ?? null;
-
       const entryPrice = curr?.entry_price ?? prev?.entry_price ?? null;
       const markPrice = curr?.mark ?? prev?.mark ?? null;
 
-      // Use symbol as stable position_id (contract string is perfect)
       const position_id = symbol;
 
       // OPEN
       if (prevQty === 0 && currQty > 0) {
-        const meta = {
-          source: "pull",
-          entry_time: curr?.entry_time ?? null,
-          tv_close_hint: curr?.tv_close_hint ?? null,
-        };
-
-        const dedupe_key = eventKey(["OPEN", position_id, currQty, entryPrice ?? markPrice, tsIso]);
-
-        // Check if we've already inserted this exact event recently
         const { data: exists } = await supabase
           .from("bot_fills")
           .select("id")
@@ -152,21 +151,13 @@ export async function GET(req: Request) {
             qty: currQty,
             price: entryPrice ?? markPrice,
             realized_pnl: null,
-            meta: { ...meta, dedupe_key },
+            meta: { source: "pull", dedupe_key: eventKey(["OPEN", position_id, currQty, tsIso]) },
           });
         }
       }
 
       // CLOSE
       if (prevQty > 0 && currQty === 0) {
-        const meta = {
-          source: "pull",
-          tv_close_hint: prev?.tv_close_hint ?? null,
-          prev_entry_time: prev?.entry_time ?? null,
-        };
-
-        const dedupe_key = eventKey(["CLOSE", position_id, prevQty, markPrice ?? entryPrice, tsIso]);
-
         const { data: exists } = await supabase
           .from("bot_fills")
           .select("id")
@@ -184,8 +175,8 @@ export async function GET(req: Request) {
             event_type: "CLOSE",
             qty: prevQty,
             price: markPrice ?? entryPrice,
-            realized_pnl: null, // not available per-trade from this API
-            meta: { ...meta, dedupe_key },
+            realized_pnl: null,
+            meta: { source: "pull", dedupe_key: eventKey(["CLOSE", position_id, prevQty, tsIso]) },
           });
         }
       }
@@ -194,8 +185,6 @@ export async function GET(req: Request) {
       if (prevQty > 0 && currQty > 0 && currQty !== prevQty) {
         const event_type = currQty > prevQty ? "ADD" : "TRIM";
         const deltaQty = Math.abs(currQty - prevQty);
-
-        const dedupe_key = eventKey([event_type, position_id, deltaQty, markPrice ?? entryPrice, tsIso]);
 
         const { data: exists } = await supabase
           .from("bot_fills")
@@ -215,18 +204,22 @@ export async function GET(req: Request) {
             qty: deltaQty,
             price: markPrice ?? entryPrice,
             realized_pnl: null,
-            meta: { source: "pull", prevQty, currQty, dedupe_key },
+            meta: {
+              source: "pull",
+              prevQty,
+              currQty,
+              dedupe_key: eventKey([event_type, position_id, deltaQty, tsIso]),
+            },
           });
         }
       }
     }
 
-    return NextResponse.json({
-      ok: true,
-      inserted: { equity, cash, open_pnl: openPnl, realized_pnl: realizedPnl, positions_count: positionsCount },
-      derived_fills: true,
-    });
+    return NextResponse.json({ ok: true });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message ?? "unknown error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: err?.message ?? "unknown error" },
+      { status: 500 }
+    );
   }
 }
