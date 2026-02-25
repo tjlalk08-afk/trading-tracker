@@ -1,1 +1,8 @@
-{ "crons": [ { "path": "/api/bot/pull?token=abc123supersecrettoken987xyz", "schedule": "*/1 * * * *" } ] }
+{
+  "crons": [
+    {
+      "path": "/api/bot/pull?token=super_secret_token_2026_abc123",
+      "schedule": "0 13 * * *"
+    }
+  ]
+}
