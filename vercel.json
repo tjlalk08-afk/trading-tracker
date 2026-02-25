@@ -1,1 +1,1 @@
-{ "crons": [ { "path": "/api/bot/pull/cron", "schedule": "*/1 * * * *" } ] }
+{ "crons": [ { "path": "/api/bot/pull?token=abc123supersecrettoken987xyz", "schedule": "*/1 * * * *" } ] }
