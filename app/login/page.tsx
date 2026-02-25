@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -21,7 +23,10 @@ export default function LoginPage() {
 
   async function signIn() {
     setMsg("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     setMsg(error ? error.message : "Logged in! Go to /dashboard");
   }
 
@@ -40,6 +45,7 @@ export default function LoginPage() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
+
       <input
         style={{ width: "100%", padding: 10, marginBottom: 10 }}
         placeholder="Password"
@@ -48,12 +54,20 @@ export default function LoginPage() {
         onChange={(e) => setPassword(e.target.value)}
       />
 
-      <button style={{ width: "100%", padding: 10, marginBottom: 10 }} onClick={signIn}>
+      <button
+        style={{ width: "100%", padding: 10, marginBottom: 10 }}
+        onClick={signIn}
+      >
         Log in
       </button>
-      <button style={{ width: "100%", padding: 10, marginBottom: 10 }} onClick={signUp}>
+
+      <button
+        style={{ width: "100%", padding: 10, marginBottom: 10 }}
+        onClick={signUp}
+      >
         Sign up
       </button>
+
       <button style={{ width: "100%", padding: 10 }} onClick={signOut}>
         Log out
       </button>
