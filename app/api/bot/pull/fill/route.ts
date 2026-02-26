@@ -44,8 +44,11 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
+    const nowIso = new Date().toISOString();
+
+    // 1️⃣ Always insert into bot_fills
     const { error } = await supabase.from("bot_fills").insert({
-      ts: new Date().toISOString(),
+      ts: nowIso,
       position_id,
       symbol,
       side,
@@ -61,6 +64,31 @@ export async function POST(req: Request) {
         { ok: false, error: error.message },
         { status: 500 }
       );
+    }
+
+    // 2️⃣ If this is a CLOSE event, also insert into bot_trades_closed
+    if (event_type === "CLOSE") {
+      const { error: closeErr } = await supabase
+        .from("bot_trades_closed")
+        .insert({
+          closed_at: nowIso,
+          symbol,
+          side,
+          qty,
+          entry_price: null,           // can enhance later
+          exit_price: price ?? null,
+          pnl: realized_pnl ?? null,
+          fees: 0,
+          strategy: null,
+          created_at: nowIso
+        });
+
+      if (closeErr) {
+        return NextResponse.json(
+          { ok: false, error: closeErr.message },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({ ok: true });
