@@ -1,27 +1,31 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
-import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { useEffect, useState } from "react";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 export default function LoginPage() {
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
 
+  useEffect(() => {
+    const client = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+    );
+    setSupabase(client);
+  }, []);
+
   async function signUp() {
+    if (!supabase) return;
     setMsg("");
     const { error } = await supabase.auth.signUp({ email, password });
     setMsg(error ? error.message : "Signed up. Now log in.");
   }
 
   async function signIn() {
+    if (!supabase) return;
     setMsg("");
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -31,6 +35,7 @@ export default function LoginPage() {
   }
 
   async function signOut() {
+    if (!supabase) return;
     await supabase.auth.signOut();
     setMsg("Signed out.");
   }
