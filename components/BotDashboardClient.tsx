@@ -42,31 +42,52 @@ function pick(obj: any, keys: string[]) {
   return undefined;
 }
 
+function normRow(r: any): PositionRow {
+  return {
+    symbol: String(pick(r, ["symbol", "ticker", "underlying", "sym"]) ?? "").toUpperCase(),
+    side: String(pick(r, ["side", "dir", "direction"]) ?? "").toUpperCase(),
+    qty: getNum(pick(r, ["qty", "quantity", "contracts"])),
+    entry: getNum(pick(r, ["entry", "entry_price", "avg_entry", "avgEntry"])),
+    mark: getNum(pick(r, ["mark", "mark_price", "mid", "price"])),
+    openPnl: getNum(pick(r, ["open_pnl", "openPnl", "pnl", "unrealized", "unrealized_pnl"])),
+    openPnlPct: getNum(pick(r, ["open_pnl_pct", "openPnlPct", "pnl_pct", "unrealized_pct"])),
+    optionSymbol: String(pick(r, ["option_symbol", "optionSymbol", "contract", "contract_symbol"]) ?? ""),
+  };
+}
+
+/**
+ * Your bot may store positions in:
+ * - data.positions (object or arrays)
+ * - data.live_positions / data.test_shadow_positions
+ * - data.positions.live / data.positions.test
+ */
 function normalizePositions(payload: BotPayload): { live: PositionRow[]; test: PositionRow[] } {
   const d = payload?.data ?? {};
-  const p = d.positions;
 
-  if (!p || (typeof p === "object" && !Array.isArray(p) && Object.keys(p).length === 0)) {
+  // 1) Try common direct arrays first
+  const liveDirect = pick(d, ["live_positions", "LIVE_POSITIONS", "positions_live"]) as any;
+  const testDirect = pick(d, ["test_shadow_positions", "TEST_SHADOW_POSITIONS", "positions_test"]) as any;
+
+  if (Array.isArray(liveDirect) || Array.isArray(testDirect)) {
+    return {
+      live: Array.isArray(liveDirect) ? liveDirect.map(normRow) : [],
+      test: Array.isArray(testDirect) ? testDirect.map(normRow) : [],
+    };
+  }
+
+  // 2) Try `positions`
+  const p = d.positions;
+  if (!p) return { live: [], test: [] };
+
+  // Empty object
+  if (typeof p === "object" && !Array.isArray(p) && Object.keys(p).length === 0) {
     return { live: [], test: [] };
   }
 
-  const normRow = (r: any): PositionRow => {
-    const symbol = String(pick(r, ["symbol", "ticker", "underlying", "sym"]) ?? "").toUpperCase();
-    const side = String(pick(r, ["side", "dir", "direction"]) ?? "").toUpperCase();
-    const qty = getNum(pick(r, ["qty", "quantity", "contracts"]));
-    const entry = getNum(pick(r, ["entry", "entry_price", "avg_entry", "avgEntry"]));
-    const mark = getNum(pick(r, ["mark", "mark_price", "mid", "price"]));
-    const openPnl = getNum(pick(r, ["open_pnl", "openPnl", "pnl", "unrealized", "unrealized_pnl"]));
-    const openPnlPct = getNum(pick(r, ["open_pnl_pct", "openPnlPct", "pnl_pct", "unrealized_pct"]));
-    const optionSymbol = String(pick(r, ["option_symbol", "optionSymbol", "contract", "contract_symbol"]) ?? "");
-
-    return { symbol, side, qty, entry, mark, openPnl, openPnlPct, optionSymbol };
-  };
-
-  // { live: [...], test: [...] }
+  // positions = { live: [...], test: [...] }
   if (typeof p === "object" && !Array.isArray(p)) {
-    const liveArr = pick(p, ["live", "LIVE", "real", "REAL", "positions_live"]) as any;
-    const testArr = pick(p, ["test", "TEST", "shadow", "SHADOW", "test_shadow", "positions_test"]) as any;
+    const liveArr = pick(p, ["live", "LIVE", "real", "REAL"]) as any;
+    const testArr = pick(p, ["test", "TEST", "shadow", "SHADOW", "test_shadow"]) as any;
 
     if (Array.isArray(liveArr) || Array.isArray(testArr)) {
       return {
@@ -75,7 +96,7 @@ function normalizePositions(payload: BotPayload): { live: PositionRow[]; test: P
       };
     }
 
-    // keyed object fallback
+    // positions is keyed in some way — best-effort scan
     const keys = Object.keys(p);
     let live: any[] = [];
     let test: any[] = [];
@@ -83,14 +104,10 @@ function normalizePositions(payload: BotPayload): { live: PositionRow[]; test: P
     for (const k of keys) {
       const v = p[k];
       const lk = k.toLowerCase();
-
       if (Array.isArray(v)) {
         if (lk.includes("test") || lk.includes("shadow")) test = test.concat(v);
         else live = live.concat(v);
-        continue;
-      }
-
-      if (v && typeof v === "object") {
+      } else if (v && typeof v === "object") {
         const maybeSymbol = pick(v, ["symbol", "ticker", "underlying", "sym"]);
         const maybeSide = pick(v, ["side", "dir", "direction"]);
         if (maybeSymbol || maybeSide) {
@@ -103,7 +120,7 @@ function normalizePositions(payload: BotPayload): { live: PositionRow[]; test: P
     return { live: live.map(normRow), test: test.map(normRow) };
   }
 
-  // flat array
+  // positions = flat array
   if (Array.isArray(p)) {
     return { live: p.map(normRow), test: [] };
   }
@@ -187,12 +204,14 @@ export default function BotDashboardClient({ initial }: { initial: BotPayload })
   const d = payload?.data ?? {};
   const connected = payload?.ok === true;
 
+  // ✅ Use the exact legacy keys first
   const updated = d.updated ?? "—";
-  const cash = Number(d.live_cash ?? d.cash ?? 0);
-  const equity = Number(d.live_equity ?? d.equity ?? 0);
-  const realized = Number(d.live_realized_pnl ?? d.realized_pnl ?? 0);
-  const open = Number(d.live_open_pnl ?? d.open_pnl ?? 0);
-  const total = Number(d.live_total_pnl ?? d.total_pnl ?? 0);
+  const cash = Number(d.cash ?? 0);
+  const equity = Number(d.equity ?? 0);
+
+  const liveRealized = Number(d.live_realized_pnl ?? 0);
+  const liveOpen = Number(d.live_open_pnl ?? 0);
+  const liveTotal = Number(d.live_total_pnl ?? 0);
 
   const testCash = Number(d.test_cash ?? 0);
   const testEquity = Number(d.test_equity ?? 0);
@@ -257,10 +276,10 @@ export default function BotDashboardClient({ initial }: { initial: BotPayload })
       <Section title="LIVE">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <KpiCard title="Cash" value={money(cash)} />
+          <KpiCard title="Live Realized" value={money(liveRealized)} />
+          <KpiCard title="Live Open" value={money(liveOpen)} />
+          <KpiCard title="Live Total" value={money(liveTotal)} />
           <KpiCard title="Equity" value={money(equity)} />
-          <KpiCard title="Realized P/L" value={money(realized)} />
-          <KpiCard title="Open P/L" value={money(open)} />
-          <KpiCard title="Total P/L" value={money(total)} />
         </div>
       </Section>
 
@@ -268,10 +287,17 @@ export default function BotDashboardClient({ initial }: { initial: BotPayload })
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <KpiCard title="Cash" value={money(testCash)} />
           <KpiCard title="Equity" value={money(testEquity)} />
-          <KpiCard title="Realized P/L" value={money(testRealized)} />
-          <KpiCard title="Open P/L" value={money(testOpen)} />
-          <KpiCard title="Total P/L" value={money(testTotal)} />
+          <KpiCard title="Realized" value={money(testRealized)} />
+          <KpiCard title="Open" value={money(testOpen)} />
+          <KpiCard title="Total" value={money(testTotal)} />
         </div>
+      </Section>
+
+      {/* TEMP DEBUG so we can see how your bot exposes positions */}
+      <Section title="DEBUG: positions raw">
+        <pre className="text-xs overflow-auto whitespace-pre-wrap opacity-80">
+          {JSON.stringify(d.positions ?? null, null, 2)}
+        </pre>
       </Section>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
