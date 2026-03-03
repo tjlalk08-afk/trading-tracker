@@ -8,37 +8,37 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function msg(e: any) {
+  return e?.message ?? String(e);
+}
+
 function isRetryable(err: any) {
-  const msg = (err?.message ?? String(err)).toLowerCase();
+  const m = msg(err).toLowerCase();
   return (
-    msg.includes("getaddrinfo") ||
-    msg.includes("enotfound") ||
-    msg.includes("ebusy") ||
-    msg.includes("fetch failed") ||
-    msg.includes("timeout") ||
-    msg.includes("econnreset") ||
-    msg.includes("etimedout")
+    m.includes("getaddrinfo") ||
+    m.includes("enotfound") ||
+    m.includes("ebusy") ||
+    m.includes("fetch failed") ||
+    m.includes("timeout") ||
+    m.includes("econnreset") ||
+    m.includes("etimedout")
   );
 }
 
 async function withRetry<T>(fn: () => Promise<T>, tries = 5) {
-  let lastErr: any = null;
-
+  let last: any = null;
   for (let i = 0; i < tries; i++) {
     try {
       return await fn();
     } catch (e: any) {
-      lastErr = e;
+      last = e;
       if (!isRetryable(e) || i === tries - 1) throw e;
-
-      // exponential backoff with jitter
-      const base = 250 * Math.pow(2, i); // 250, 500, 1000, 2000...
+      const base = 250 * Math.pow(2, i);
       const jitter = Math.floor(Math.random() * 200);
       await sleep(base + jitter);
     }
   }
-
-  throw lastErr;
+  throw last;
 }
 
 function n(v: any): number | null {
@@ -48,6 +48,8 @@ function n(v: any): number | null {
 }
 
 export async function GET(req: Request) {
+  const stage = { at: "START" as string };
+
   try {
     const { searchParams } = new URL(req.url);
     const secret = searchParams.get("secret");
@@ -67,51 +69,34 @@ export async function GET(req: Request) {
     }
 
     const sb = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
-
     const bot_id = "ngt-bot";
     const nowIso = new Date().toISOString();
 
-    // ---- LOCK (prevents double runs) ----
-    // Requires this table. If you don't have it yet, run the SQL below.
-    // If you prefer not to add a lock table, tell me and we can remove it.
-    const lockKey = `poll-${bot_id}`;
-
-    // Try to acquire lock (retryable)
-    const acquired = await withRetry(async () => {
-      const { data, error } = await sb
+    // ---- LOCK ----
+    stage.at = "LOCK";
+    await withRetry(async () => {
+      const { error } = await sb
         .from("cron_locks")
         .upsert(
-          { lock_key: lockKey, locked_until: new Date(Date.now() + 55_000).toISOString() },
+          { lock_key: `poll-${bot_id}`, locked_until: new Date(Date.now() + 55_000).toISOString() },
           { onConflict: "lock_key" }
-        )
-        .select()
-        .single();
-
+        );
       if (error) throw error;
-
-      // If someone else holds a lock far in the future, skip
-      // (We keep it simple: always overwrite, but short TTL keeps it safe)
-      return !!data;
+      return true;
     }, 5);
 
-    if (!acquired) {
-      return NextResponse.json({ ok: true, skipped: "lock_not_acquired" });
-    }
-
-    // ---- FETCH BOT DATA (retryable) ----
+    // ---- BOT FETCH ----
+    stage.at = "BOT_FETCH";
     const payload = await withRetry(async () => {
-      const upstream = await fetch("https://ngtdashboard.com/api/bot/dashboard", {
-        cache: "no-store",
-      });
-      if (!upstream.ok) {
-        throw new Error(`bot proxy failed status=${upstream.status}`);
-      }
-      return upstream.json();
+      const r = await fetch("https://ngtdashboard.com/api/bot/dashboard", { cache: "no-store" });
+      if (!r.ok) throw new Error(`bot proxy failed status=${r.status}`);
+      return r.json();
     }, 5);
 
     const d = payload?.data ?? {};
 
-    // ---- INSERT EQUITY POINT (retryable) ----
+    // ---- SUPABASE INSERT ----
+    stage.at = "SUPABASE_INSERT";
     await withRetry(async () => {
       const { error } = await sb.from("bot_equity_points").insert({
         bot_id,
@@ -128,7 +113,6 @@ export async function GET(req: Request) {
         test_open_pnl: n(d.test_open_pnl),
         test_total_pnl: n(d.test_total_pnl),
       });
-
       if (error) throw error;
       return true;
     }, 5);
@@ -136,11 +120,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json(
-      {
-        ok: false,
-        error: "cron_failed",
-        message: e?.message ?? String(e),
-      },
+      { ok: false, error: "cron_failed", stage: stage.at, message: msg(e) },
       { status: 500 }
     );
   }
