@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import dns from "node:dns";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// Force IPv4-first in THIS function runtime
+dns.setDefaultResultOrder("ipv4first");
 
 function n(v: any): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -25,16 +29,39 @@ export async function GET(req: Request) {
 
     if (!supabaseUrl || !serviceKey) {
       return NextResponse.json(
-        { ok: false, error: "missing supabase env vars" },
+        {
+          ok: false,
+          error: "missing supabase env vars",
+          hasSupabaseUrl: !!supabaseUrl,
+          hasServiceRole: !!serviceKey,
+        },
         { status: 500 }
       );
     }
 
-    const sb = createClient(supabaseUrl, serviceKey, {
-      auth: { persistSession: false },
-    });
+    // DNS diagnostic: extract hostname from SUPABASE_URL and attempt lookup
+    const host = new URL(supabaseUrl).hostname;
+    let dnsResult: any = null;
+    try {
+      dnsResult = await new Promise((resolve, reject) => {
+        dns.lookup(host, { all: true }, (err, addresses) => {
+          if (err) reject(err);
+          else resolve(addresses);
+        });
+      });
+    } catch (e: any) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "dns_lookup_failed",
+          host,
+          message: e?.message ?? String(e),
+        },
+        { status: 500 }
+      );
+    }
 
-    // ✅ Fetch from YOUR OWN proxy route (more reliable in Vercel)
+    // Fetch bot JSON from your working proxy
     const upstream = await fetch("https://ngtdashboard.com/api/bot/dashboard", {
       cache: "no-store",
     });
@@ -49,6 +76,10 @@ export async function GET(req: Request) {
     const payload = await upstream.json();
     const d = payload?.data ?? {};
     const bot_id = "ngt-bot";
+
+    const sb = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false },
+    });
 
     const { error: insErr } = await sb.from("bot_equity_points").insert({
       bot_id,
@@ -67,15 +98,15 @@ export async function GET(req: Request) {
 
     if (insErr) {
       return NextResponse.json(
-        { ok: false, error: "supabase insert failed", details: insErr },
+        { ok: false, error: "supabase_insert_failed", details: insErr, dnsResult, host },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, dnsResult, host });
   } catch (e: any) {
     return NextResponse.json(
-      { ok: false, error: "route crashed", message: e?.message ?? String(e) },
+      { ok: false, error: "route_crashed", message: e?.message ?? String(e) },
       { status: 500 }
     );
   }
