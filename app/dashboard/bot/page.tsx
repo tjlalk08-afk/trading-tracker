@@ -1,25 +1,21 @@
-import { headers } from "next/headers";
-import BotDashboardClient from "@/components/BotDashboardClient";
-
 export const dynamic = "force-dynamic";
 
-async function getBotState() {
-  const h = await headers();
-  const host = h.get("host");
+export default function BotEmbedPage() {
+  const src = "https://dashboard.ngtdashboard.com/dashboard?theme=stealth";
 
-  const proto = process.env.VERCEL ? "https" : "http";
-  const base = `${proto}://${host}`;
-
-  const res = await fetch(`${base}/api/bot/dashboard`, { cache: "no-store" });
-
-  if (!res.ok) {
-    return { ok: false, error: "Failed to load bot state", status: res.status };
-  }
-
-  return res.json();
-}
-
-export default async function BotPage() {
-  const initial = await getBotState();
-  return <BotDashboardClient initial={initial} />;
+  return (
+    <div className="relative -mx-12 -mt-10">
+      <iframe
+        src={src}
+        className="w-full"
+        style={{
+          height: "calc(100vh - 88px)", // adjust if you want more/less height
+          border: "0",
+          display: "block",
+          background: "transparent",
+        }}
+        allow="clipboard-read; clipboard-write"
+      />
+    </div>
+  );
 }
