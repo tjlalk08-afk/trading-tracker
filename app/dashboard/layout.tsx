@@ -1,46 +1,29 @@
 import Link from "next/link";
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen text-neutral-100 relative overflow-hidden">
-      {/* Background to match the embedded dashboard vibe */}
-      <div className="absolute inset-0 bg-black" />
-      <div className="absolute inset-0 opacity-80 bg-[radial-gradient(1000px_500px_at_20%_10%,rgba(0,255,200,0.18),transparent_60%),radial-gradient(900px_500px_at_80%_20%,rgba(80,100,255,0.16),transparent_60%),radial-gradient(900px_700px_at_50%_90%,rgba(0,150,255,0.10),transparent_60%)]" />
-      <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.12),transparent_55%)]" />
-
-      {/* Content */}
-      <div className="relative">
-        <nav className="flex items-center justify-between px-12 py-6 border-b border-white/10 bg-black/30 backdrop-blur">
-          <div className="text-xl font-semibold tracking-widest">TRADING DESK</div>
-
-          <div className="flex gap-8 text-sm uppercase tracking-wider">
-            <Link href="/dashboard" className="opacity-80 hover:opacity-100">
-              Overview
-            </Link>
-            <Link href="/dashboard/strategy" className="opacity-80 hover:opacity-100">
-              Strategy
-            </Link>
-            <Link href="/dashboard/symbols" className="opacity-80 hover:opacity-100">
-              Symbols
-            </Link>
-            <Link href="/dashboard/compare" className="opacity-80 hover:opacity-100">
-              Compare
-            </Link>
-            <Link href="/dashboard/performance" className="opacity-80 hover:opacity-100">
-              Performance
-            </Link>
-            <Link href="/dashboard/bot" className="opacity-80 hover:opacity-100">
-              Bot
-            </Link>
-          </div>
-        </nav>
-
-        <div className="px-12 py-10">{children}</div>
+    <div className="min-h-screen text-neutral-200 bg-black">
+      {/* background glow */}
+      <div className="pointer-events-none fixed inset-0 opacity-70">
+        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-emerald-500/10 blur-[120px]" />
+        <div className="absolute -top-24 right-0 h-[520px] w-[520px] rounded-full bg-cyan-500/10 blur-[120px]" />
+        <div className="absolute bottom-0 left-1/3 h-[520px] w-[520px] rounded-full bg-indigo-500/10 blur-[120px]" />
       </div>
+
+      {/* top nav */}
+      <nav className="relative z-10 flex items-center justify-between px-10 py-5 border-b border-white/10">
+        <div className="text-xl font-semibold tracking-widest">TRADING DESK</div>
+        <div className="flex gap-8 text-sm uppercase tracking-wider">
+          <Link href="/dashboard" className="hover:text-emerald-300">Overview</Link>
+          <Link href="/dashboard/strategy" className="hover:text-emerald-300">Strategy</Link>
+          <Link href="/dashboard/symbols" className="hover:text-emerald-300">Symbols</Link>
+          <Link href="/dashboard/compare" className="hover:text-emerald-300">Compare</Link>
+          <Link href="/dashboard/performance" className="hover:text-emerald-300">Performance</Link>
+          <Link href="/dashboard/bot" className="hover:text-emerald-300">Bot</Link>
+        </div>
+      </nav>
+
+      <main className="relative z-10 px-10 py-8">{children}</main>
     </div>
   );
 }
