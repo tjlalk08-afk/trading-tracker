@@ -22,11 +22,31 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  const { data } = await supabase.auth.getUser();
+  const pathname = req.nextUrl.pathname;
+  const isDashboard = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
 
-  if (!data.user && req.nextUrl.pathname.startsWith("/dashboard")) {
+  if (!isDashboard) return res;
+
+  const { data: userRes } = await supabase.auth.getUser();
+
+  // Not logged in -> send to login (or "/")
+  if (!userRes?.user) {
     const url = req.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/login"; // change to "/" if you want homepage to be login
+    return NextResponse.redirect(url);
+  }
+
+  // Logged in but not approved -> send to /pending
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("approved")
+    .eq("id", userRes.user.id)
+    .single();
+
+  // If profile missing or not approved, block dashboard access
+  if (error || !profile?.approved) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/pending";
     return NextResponse.redirect(url);
   }
 

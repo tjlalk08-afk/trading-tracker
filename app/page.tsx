@@ -1,119 +1,134 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
+import { useMemo, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
+
+type Mode = "login" | "signup" | "forgot";
 
 export default function LoginPage() {
-  const router = useRouter();
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-  );
-
+  const supabase = useMemo(() => supabaseBrowser(), []);
+  const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+
+  const [msg, setMsg] = useState<string>("");
+  const [err, setErr] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
-  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    setMsg("");
+    setErr("");
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      if (mode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
 
-    setLoading(false);
+        // send them to the app
+        window.location.href = "/dashboard";
+      }
 
-    if (error) {
-      setError(error.message);
-      return;
+      if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            // where Supabase will send email verification links
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+        if (error) throw error;
+
+        setMsg("Check your email to confirm your account.");
+      }
+
+      if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset`,
+        });
+        if (error) throw error;
+
+        setMsg("Password reset email sent. Check your inbox.");
+      }
+    } catch (e: any) {
+      setErr(e?.message ?? "Something went wrong");
+    } finally {
+      setLoading(false);
     }
-
-    router.replace("/dashboard");
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        background: "#0f172a",
-        color: "white",
-        fontFamily: "Inter, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          width: 400,
-          padding: 30,
-          borderRadius: 12,
-          background: "#1e293b",
-        }}
-      >
-        <h1 style={{ marginBottom: 20 }}>Login</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#071024] via-black to-black text-white px-4">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6 shadow-2xl">
+        <div className="text-2xl font-semibold mb-2">Trading Desk</div>
+        <div className="text-sm opacity-70 mb-6">
+          {mode === "login" && "Login to your dashboard"}
+          {mode === "signup" && "Create an account"}
+          {mode === "forgot" && "Reset your password"}
+        </div>
 
-        <form onSubmit={handleLogin}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{
-              width: "100%",
-              padding: 10,
-              marginBottom: 12,
-              borderRadius: 6,
-              border: "none",
-            }}
-          />
+        <div className="flex gap-2 mb-6">
+          <Tab active={mode === "login"} onClick={() => setMode("login")}>Login</Tab>
+          <Tab active={mode === "signup"} onClick={() => setMode("signup")}>Sign up</Tab>
+          <Tab active={mode === "forgot"} onClick={() => setMode("forgot")}>Forgot</Tab>
+        </div>
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{
-              width: "100%",
-              padding: 10,
-              marginBottom: 12,
-              borderRadius: 6,
-              border: "none",
-            }}
-          />
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs opacity-70">Email</label>
+            <input
+              className="mt-1 w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 outline-none focus:ring-2 focus:ring-white/20"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              placeholder="you@email.com"
+              required
+            />
+          </div>
 
-          {error && (
-            <div style={{ color: "#f87171", marginBottom: 10 }}>
-              {error}
+          {mode !== "forgot" && (
+            <div>
+              <label className="text-xs opacity-70">Password</label>
+              <input
+                className="mt-1 w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 outline-none focus:ring-2 focus:ring-white/20"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type="password"
+                placeholder="••••••••"
+                required
+              />
             </div>
           )}
 
+          {err && <div className="text-sm text-red-400">{err}</div>}
+          {msg && <div className="text-sm text-emerald-300">{msg}</div>}
+
           <button
-            type="submit"
             disabled={loading}
-            style={{
-              width: "100%",
-              padding: 10,
-              background: "#2563eb",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-              opacity: loading ? 0.7 : 1,
-            }}
+            className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-60 px-4 py-2 font-semibold"
+            type="submit"
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "Working..." : mode === "login" ? "Login" : mode === "signup" ? "Create account" : "Send reset email"}
           </button>
         </form>
       </div>
-    </main>
+    </div>
+  );
+}
+
+function Tab({ active, onClick, children }: any) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "flex-1 rounded-xl px-3 py-2 text-sm border",
+        active ? "bg-white/10 border-white/20" : "bg-transparent border-white/10 opacity-70 hover:opacity-100",
+      ].join(" ")}
+    >
+      {children}
+    </button>
   );
 }
