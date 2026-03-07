@@ -7,11 +7,28 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const { data, error } = await supabaseAdmin
     .from("dashboard_snapshots")
-    .select(
-      "id, snapshot_ts, equity, live_equity, test_equity, total_pl, live_total_pl, test_total_pl, created_at"
-    )
+    .select(`
+      id,
+      snapshot_ts,
+      cash,
+      realized_pl,
+      open_pl,
+      total_pl,
+      equity,
+      live_cash,
+      live_realized_pl,
+      live_open_pl,
+      live_total_pl,
+      live_equity,
+      test_cash,
+      test_realized_pl,
+      test_open_pl,
+      test_total_pl,
+      test_equity,
+      created_at
+    `)
     .order("snapshot_ts", { ascending: true })
-    .limit(500);
+    .limit(1000);
 
   if (error) {
     return NextResponse.json(

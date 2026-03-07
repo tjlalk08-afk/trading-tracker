@@ -1,5 +1,6 @@
 import Link from "next/link";
 import GlobalRefreshSnapshotButton from "@/components/GlobalRefreshSnapshotButton";
+import DashboardFreshnessBadge from "@/components/DashboardFreshnessBadge";
 
 export default function DashboardLayout({
   children,
@@ -18,17 +19,39 @@ export default function DashboardLayout({
       {/* top nav */}
       <nav className="relative z-10 flex items-center justify-between px-10 py-5 border-b border-white/10">
         <div className="text-xl font-semibold tracking-widest">TRADING DESK</div>
-        <div className="flex gap-8 text-sm uppercase tracking-wider">
-          <Link href="/dashboard" className="hover:text-emerald-300">Overview</Link>
-          <Link href="/dashboard/strategy" className="hover:text-emerald-300">Strategy</Link>
-          <Link href="/dashboard/symbols" className="hover:text-emerald-300">Symbols</Link>
-          <Link href="/dashboard/compare" className="hover:text-emerald-300">Compare</Link>
-          <Link href="/dashboard/performance" className="hover:text-emerald-300">Performance</Link>
-          <Link href="/dashboard/bot" className="hover:text-emerald-300">Bot</Link>
+
+        <div className="flex flex-wrap gap-8 text-sm uppercase tracking-wider">
+          <Link href="/dashboard" className="hover:text-emerald-300">
+            Overview
+          </Link>
+          <Link href="/dashboard/live" className="hover:text-emerald-300">
+            Live
+          </Link>
+          <Link href="/dashboard/strategy" className="hover:text-emerald-300">
+            Strategy
+          </Link>
+          <Link href="/dashboard/symbols" className="hover:text-emerald-300">
+            Symbols
+          </Link>
+          <Link href="/dashboard/compare" className="hover:text-emerald-300">
+            Compare
+          </Link>
+          <Link href="/dashboard/performance" className="hover:text-emerald-300">
+            Performance
+          </Link>
+          <Link href="/dashboard/bot" className="hover:text-emerald-300">
+            Bot
+          </Link>
         </div>
       </nav>
 
-      <main className="relative z-10 px-10 py-8">{children}</main>
+      <main className="relative z-10 px-10 py-8 space-y-6">
+        <div className="flex justify-end">
+          <DashboardFreshnessBadge />
+        </div>
+
+        {children}
+      </main>
 
       <GlobalRefreshSnapshotButton />
     </div>
