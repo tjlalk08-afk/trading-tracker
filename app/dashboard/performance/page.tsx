@@ -56,6 +56,21 @@ function StatCard({
   );
 }
 
+function getLocalDayKey(dateStr: string) {
+  const d = new Date(dateStr);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatDayLabel(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString([], {
+    month: "numeric",
+    day: "numeric",
+  });
+}
+
 export default function PerformancePage() {
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,27 +103,44 @@ export default function PerformancePage() {
     loadHistory();
   }, []);
 
-  const chartData = useMemo(() => {
-    return rows.map((row) => {
-      const dt = new Date(row.snapshot_ts);
+  const dailyRows = useMemo(() => {
+    const map = new Map<string, HistoryRow>();
 
-      return {
-        label: dt.toLocaleString([], {
-          month: "numeric",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        }),
-        liveEquity: Number(row.live_equity ?? row.equity ?? 0),
-        testTotalPl: Number(row.test_total_pl ?? 0),
-        liveTotalPl: Number(row.live_total_pl ?? row.total_pl ?? 0),
-        snapshotTs: row.snapshot_ts,
-      };
-    });
+    for (const row of rows) {
+      const key = getLocalDayKey(row.snapshot_ts);
+      const existing = map.get(key);
+
+      if (!existing) {
+        map.set(key, row);
+        continue;
+      }
+
+      if (
+        new Date(row.snapshot_ts).getTime() >
+        new Date(existing.snapshot_ts).getTime()
+      ) {
+        map.set(key, row);
+      }
+    }
+
+    return Array.from(map.values()).sort(
+      (a, b) =>
+        new Date(a.snapshot_ts).getTime() - new Date(b.snapshot_ts).getTime()
+    );
   }, [rows]);
 
-  const first = rows[0];
-  const last = rows[rows.length - 1];
+  const chartData = useMemo(() => {
+    return dailyRows.map((row) => ({
+      label: formatDayLabel(row.snapshot_ts),
+      liveEquity: Number(row.live_equity ?? row.equity ?? 0),
+      testTotalPl: Number(row.test_total_pl ?? 0),
+      liveTotalPl: Number(row.live_total_pl ?? row.total_pl ?? 0),
+      snapshotTs: row.snapshot_ts,
+    }));
+  }, [dailyRows]);
+
+  const first = dailyRows[0];
+  const last = dailyRows[dailyRows.length - 1];
 
   const liveStart = Number(first?.live_equity ?? first?.equity ?? 0);
   const liveNow = Number(last?.live_equity ?? last?.equity ?? 0);
@@ -124,7 +156,7 @@ export default function PerformancePage() {
     ? new Date(last.snapshot_ts).toLocaleString()
     : "—";
 
-  const hasTestMovement = rows.some(
+  const hasTestMovement = dailyRows.some(
     (row) => Math.abs(Number(row.test_total_pl ?? 0)) > 0.000001
   );
 
@@ -135,8 +167,24 @@ export default function PerformancePage() {
     infoMessages.push("No test movement yet, so the test line is hidden.");
   }
   if (liveFlat) {
-    infoMessages.push("No live equity change yet across saved snapshots.");
+    infoMessages.push("No live equity change yet across saved daily snapshots.");
   }
+
+  const liveYAxisDomain = useMemo(() => {
+    const values = chartData
+      .map((d) => Number(d.liveEquity))
+      .filter((v) => Number.isFinite(v));
+
+    if (values.length === 0) return ["auto", "auto"] as const;
+
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const spread = max - min;
+
+    const padding = Math.max(spread * 0.25, Math.abs(liveStart) * 0.01, 50);
+
+    return [Math.floor(min - padding), Math.ceil(max + padding)] as const;
+  }, [chartData, liveStart]);
 
   return (
     <div className="space-y-8">
@@ -144,7 +192,7 @@ export default function PerformancePage() {
         <div>
           <h1 className="text-3xl font-bold">Performance</h1>
           <div className="text-sm opacity-70">
-            Saved snapshot history from Supabase.
+            Daily trend view built from saved Supabase snapshots.
           </div>
         </div>
       </div>
@@ -159,7 +207,7 @@ export default function PerformancePage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm opacity-70">
           Loading performance history...
         </div>
-      ) : rows.length === 0 ? (
+      ) : dailyRows.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm opacity-70">
           No saved snapshot history yet. Pull a few snapshots first, then this page
           will chart them.
@@ -167,30 +215,30 @@ export default function PerformancePage() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-            <StatCard title="Snapshots" value={String(rows.length)} />
+            <StatCard title="Days Tracked" value={String(dailyRows.length)} />
             <StatCard
               title="Live Equity Now"
               value={money(liveNow)}
               sub={`Start: ${money(liveStart)}`}
             />
             <StatCard
-              title="Live Change Since First Snapshot"
+              title="Live Change Since Start"
               value={money(liveChange)}
-              sub={liveFlat ? "No live movement yet" : "Saved-history change"}
+              sub={liveFlat ? "No live movement yet" : "Daily trend change"}
             />
             <StatCard
               title="Test Total P/L Now"
               value={money(latestTestTotal)}
               sub="Daily-reset model"
             />
-            <StatCard title="Latest Snapshot" value={lastTs} />
+            <StatCard title="Latest Day" value={formatDayLabel(last.snapshot_ts)} />
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
             <div className="mb-4">
-              <div className="text-2xl font-semibold">Live Equity + Test Daily P/L</div>
+              <div className="text-2xl font-semibold">Live Equity Trend + Test Daily P/L</div>
               <div className="text-sm opacity-70">
-                Left axis = live equity. Right axis = test daily P/L.
+                One saved point per day. Left axis = live equity. Right axis = test daily P/L.
               </div>
             </div>
 
@@ -216,11 +264,11 @@ export default function PerformancePage() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
                   <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                  <XAxis dataKey="label" stroke="#888" minTickGap={32} />
+                  <XAxis dataKey="label" stroke="#888" minTickGap={24} />
                   <YAxis
                     yAxisId="left"
                     stroke="#888"
-                    domain={["auto", "auto"]}
+                    domain={liveYAxisDomain}
                     tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
                   />
                   <YAxis
