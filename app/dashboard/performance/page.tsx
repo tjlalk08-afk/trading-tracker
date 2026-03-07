@@ -236,14 +236,16 @@ export default function PerformancePage() {
                       border: "1px solid rgba(255,255,255,0.1)",
                       borderRadius: 12,
                     }}
-                    formatter={(value: number, name: string) => {
-                      if (name === "liveEquity") return [money(value), "Live Equity"];
-                      if (name === "testTotalPl") return [money(value), "Test Total P/L"];
-                      return [money(value), name];
+                    formatter={(value: number | string | undefined, name: string) => {
+                      const amount = Number(value ?? 0);
+
+                      if (name === "liveEquity") return [money(amount), "Live Equity"];
+                      if (name === "testTotalPl") return [money(amount), "Test Total P/L"];
+                      return [money(amount), name];
                     }}
                     labelFormatter={(label, payload) => {
                       const point = payload?.[0]?.payload;
-                      return point?.snapshotTs ?? label;
+                      return point?.snapshotTs ?? String(label);
                     }}
                   />
                   <Legend />
