@@ -1,6 +1,11 @@
 import Link from "next/link";
+import GlobalRefreshSnapshotButton from "@/components/GlobalRefreshSnapshotButton";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-h-screen text-neutral-200 bg-black">
       {/* background glow */}
@@ -24,6 +29,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </nav>
 
       <main className="relative z-10 px-10 py-8">{children}</main>
+
+      <GlobalRefreshSnapshotButton />
     </div>
   );
 }

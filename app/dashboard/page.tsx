@@ -116,7 +116,6 @@ function MiniStat({
 export default function DashboardHome() {
   const [data, setData] = useState<Snapshot | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
   async function loadLatest() {
@@ -140,30 +139,6 @@ export default function DashboardHome() {
     }
   }
 
-  async function refreshSnapshot() {
-    try {
-      setRefreshing(true);
-      setError("");
-
-      const res = await fetch("/api/ingest/brother-dashboard", {
-        method: "GET",
-        cache: "no-store",
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.error || "Failed to refresh snapshot");
-      }
-
-      await loadLatest();
-    } catch (err: any) {
-      setError(err?.message || "Failed to refresh snapshot");
-    } finally {
-      setRefreshing(false);
-    }
-  }
-
   useEffect(() => {
     loadLatest();
   }, []);
@@ -182,14 +157,6 @@ export default function DashboardHome() {
         </div>
 
         <div className="flex gap-3">
-          <button
-            onClick={refreshSnapshot}
-            disabled={refreshing}
-            className="rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-sm hover:bg-emerald-500/20 disabled:opacity-50"
-          >
-            {refreshing ? "Refreshing..." : "Refresh Snapshot"}
-          </button>
-
           <Link
             href="/dashboard/performance"
             className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
@@ -213,7 +180,7 @@ export default function DashboardHome() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <div className="text-lg font-semibold">No snapshot saved yet</div>
           <div className="mt-2 text-sm opacity-70">
-            Click Refresh Snapshot to pull the first one from your brother’s dashboard.
+            Use the global Refresh Snapshot button to pull the first one from your brother’s dashboard.
           </div>
         </div>
       ) : (
