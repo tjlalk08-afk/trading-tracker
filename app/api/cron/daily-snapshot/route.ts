@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SNAPSHOT_TABLE = "dashboard_snapshots"; // change this if your table name is different
 const TARGET_TIMEZONE = "America/Chicago";
 const TARGET_HOUR = 11;
 const INGEST_PATH = "/api/ingest/brother-dashboard";
-
-type RecentSnapshotRow = {
-  id?: string | number;
-  created_at?: string | null;
-};
 
 function getChicagoParts(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -27,9 +20,7 @@ function getChicagoParts(date = new Date()) {
   }).formatToParts(date);
 
   const map = Object.fromEntries(
-    parts
-      .filter((p) => p.type !== "literal")
-      .map((p) => [p.type, p.value])
+    parts.filter((p) => p.type !== "literal").map((p) => [p.type, p.value])
   );
 
   return {
@@ -58,14 +49,25 @@ function safeParseJson(text: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  const expected = process.env.CRON_SECRET
-    ? `Bearer ${process.env.CRON_SECRET}`
-    : "";
+  const authHeader = request.headers.get("authorization") ?? "";
+  const envSecret = process.env.CRON_SECRET ?? "";
+  const expected = envSecret ? `Bearer ${envSecret}` : "";
 
-  if (!process.env.CRON_SECRET || authHeader !== expected) {
+  if (!envSecret || authHeader !== expected) {
     return NextResponse.json(
-      { ok: false, error: "unauthorized" },
+      {
+        ok: false,
+        error: "unauthorized",
+        debug: {
+          authHeaderPresent: authHeader.length > 0,
+          authHeaderPrefix: authHeader.slice(0, 12),
+          authHeaderLength: authHeader.length,
+          envSecretPresent: envSecret.length > 0,
+          envSecretLength: envSecret.length,
+          expectedLength: expected.length,
+          exactMatch: authHeader === expected,
+        },
+      },
       { status: 401 }
     );
   }
@@ -76,7 +78,6 @@ export async function GET(request: NextRequest) {
   const chicagoNow = getChicagoParts(now);
   const todayChicago = chicagoDateKey(now);
 
-  // Only run during the 11 AM CT hour unless force=1
   if (!force && chicagoNow.hour !== TARGET_HOUR) {
     return NextResponse.json({
       ok: true,
@@ -87,48 +88,10 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Look back 48h and see whether any snapshot already exists for today's Chicago date
-  const sinceIso = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-
-  const { data, error } = await supabaseAdmin
-    .from(SNAPSHOT_TABLE)
-    .select("id, created_at")
-    .gte("created_at", sinceIso)
-    .order("created_at", { ascending: false })
-    .limit(200);
-
-  if (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "failed-to-check-existing-snapshots",
-        details: error.message,
-      },
-      { status: 500 }
-    );
-  }
-
-  const recent = (data ?? []) as RecentSnapshotRow[];
-
-  const alreadyHaveToday = recent.some((row) => {
-    if (!row.created_at) return false;
-    return chicagoDateKey(new Date(row.created_at)) === todayChicago;
-  });
-
-  if (!force && alreadyHaveToday) {
-    return NextResponse.json({
-      ok: true,
-      skipped: true,
-      reason: "snapshot-already-exists-for-today",
-      todayChicago,
-    });
-  }
-
-  // Reuse your existing ingest route so manual refresh and cron share the same pipeline
   const ingestUrl = new URL(INGEST_PATH, request.nextUrl.origin);
 
   const ingestRes = await fetch(ingestUrl.toString(), {
-    method: "POST", // change to GET if your ingest route currently uses GET
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${process.env.CRON_SECRET}`,
@@ -137,7 +100,9 @@ export async function GET(request: NextRequest) {
     cache: "no-store",
     body: JSON.stringify({
       source: "vercel-cron",
-      reason: "11am-ct-auto-backfill",
+      reason: "11am-chicago-daily-snapshot-always-save",
+      forced: force,
+      chicagoDate: todayChicago,
     }),
   });
 
