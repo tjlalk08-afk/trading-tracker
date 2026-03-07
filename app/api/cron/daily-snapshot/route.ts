@@ -1,4 +1,4 @@
-
+// app/api/cron/daily-snapshot/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -122,4 +122,4 @@ export async function GET(request: NextRequest) {
     chicagoNow,
     ingestResponse: parsed,
   });
-}// redeploy ping
+}
