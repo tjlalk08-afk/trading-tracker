@@ -39,6 +39,9 @@ export default function DashboardLayout({
           <Link href="/dashboard/performance" className="hover:text-emerald-300">
             Performance
           </Link>
+          <Link href="/dashboard/investors" className="hover:text-emerald-300">
+            Investors
+          </Link>
           <Link href="/dashboard/bot" className="hover:text-emerald-300">
             Bot
           </Link>
