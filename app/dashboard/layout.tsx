@@ -27,9 +27,6 @@ export default function DashboardLayout({
           <Link href="/dashboard/live" className="hover:text-emerald-300">
             Live
           </Link>
-          <Link href="/dashboard/strategy" className="hover:text-emerald-300">
-            Strategy
-          </Link>
           <Link href="/dashboard/symbols" className="hover:text-emerald-300">
             Symbols
           </Link>

@@ -2,269 +2,267 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type Row = {
-  id: number | string;
+type Timeframe = "7D" | "30D" | "1Y";
+
+type SymbolRow = {
   symbol: string;
-  enabled: boolean;
-  notes: string | null;
+  realizedPL: number;
+  openPL: number;
+  totalPL: number;
+  trades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  avgWin: number;
+  avgLoss: number;
 };
 
+function formatMoney(value: number) {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}$${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatPct(value: number) {
+  return `${value.toFixed(1)}%`;
+}
+
+function getDaysFromTimeframe(tf: Timeframe) {
+  if (tf === "7D") return 7;
+  if (tf === "30D") return 30;
+  return 365;
+}
+
 export default function SymbolsPage() {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [symbol, setSymbol] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [busyId, setBusyId] = useState<number | string | null>(null);
+  const [timeframe, setTimeframe] = useState<Timeframe>("30D");
+  const [rows, setRows] = useState<SymbolRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
-
-  async function load() {
-    setError("");
-    try {
-      const res = await fetch("/api/symbols", { cache: "no-store" });
-      const json = await res.json();
-
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.error || "Failed to load symbols");
-      }
-
-      const data: Row[] = json.data ?? [];
-      setRows(data);
-
-      const drafts: Record<string, string> = {};
-      for (const row of data) {
-        drafts[String(row.id)] = row.notes ?? "";
-      }
-      setNoteDrafts(drafts);
-    } catch (err: any) {
-      setError(err?.message || "Failed to load symbols");
-    }
-  }
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const days = getDaysFromTimeframe(timeframe);
+
+        // Replace this endpoint with your real one if different.
+        // Expected response shape:
+        // { rows: SymbolRow[] }
+        const res = await fetch(`/api/analytics/symbols?days=${days}`, {
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to load symbols analytics (${res.status})`);
+        }
+
+        const data = await res.json();
+
+        if (!cancelled) {
+          setRows(Array.isArray(data.rows) ? data.rows : []);
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err?.message || "Failed to load symbols analytics.");
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
     load();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [timeframe]);
 
-  async function addSymbol() {
-    const s = symbol.trim().toUpperCase();
-    if (!s) return;
+  const summary = useMemo(() => {
+    const totalRealized = rows.reduce((sum, r) => sum + r.realizedPL, 0);
+    const totalOpen = rows.reduce((sum, r) => sum + r.openPL, 0);
+    const totalTrades = rows.reduce((sum, r) => sum + r.trades, 0);
+    const totalWins = rows.reduce((sum, r) => sum + r.wins, 0);
+    const overallWinRate = totalTrades > 0 ? (totalWins / totalTrades) * 100 : 0;
 
-    setLoading(true);
-    setError("");
-    setMessage("");
+    const bestSymbol =
+      rows.length > 0
+        ? [...rows].sort((a, b) => b.realizedPL - a.realizedPL)[0]
+        : null;
 
-    try {
-      const res = await fetch("/api/symbols", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ symbol: s }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.error || "Failed to add symbol");
-      }
-
-      setSymbol("");
-      setMessage(`${s} added`);
-      await load();
-    } catch (err: any) {
-      setError(err?.message || "Failed to add symbol");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function toggle(id: number | string, enabled: boolean) {
-    setBusyId(id);
-    setError("");
-    setMessage("");
-
-    try {
-      const res = await fetch("/api/symbols", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id, enabled }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.error || "Failed to update symbol");
-      }
-
-      await load();
-    } catch (err: any) {
-      setError(err?.message || "Failed to update symbol");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function saveNotes(id: number | string) {
-    setBusyId(id);
-    setError("");
-    setMessage("");
-
-    try {
-      const res = await fetch("/api/symbols", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id,
-          notes: noteDrafts[String(id)] ?? "",
-        }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.error || "Failed to save notes");
-      }
-
-      setMessage("Notes saved");
-      await load();
-    } catch (err: any) {
-      setError(err?.message || "Failed to save notes");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function remove(id: number | string) {
-    setBusyId(id);
-    setError("");
-    setMessage("");
-
-    try {
-      const res = await fetch(`/api/symbols?id=${encodeURIComponent(String(id))}`, {
-        method: "DELETE",
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.error || "Failed to remove symbol");
-      }
-
-      setMessage("Symbol removed");
-      await load();
-    } catch (err: any) {
-      setError(err?.message || "Failed to remove symbol");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  const sortedRows = useMemo(
-    () => [...rows].sort((a, b) => a.symbol.localeCompare(b.symbol)),
-    [rows]
-  );
+    return {
+      totalRealized,
+      totalOpen,
+      totalTrades,
+      overallWinRate,
+      bestSymbol,
+    };
+  }, [rows]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <div className="text-2xl font-semibold">Symbols</div>
-        <div className="text-sm opacity-70">Manage your bot watchlist.</div>
-      </div>
+    <div className="min-h-screen bg-black text-white">
+      <div className="mx-auto w-full max-w-7xl px-6 py-8">
+        <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-4xl font-semibold tracking-tight">Symbols</h1>
+            <p className="mt-2 text-sm text-white/60">
+              Ticker performance by timeframe.
+            </p>
+          </div>
 
-      <div className="flex gap-3">
-        <input
-          value={symbol}
-          onChange={(e) => setSymbol(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") addSymbol();
-          }}
-          placeholder="SPY, NVDA, META..."
-          className="w-64 rounded-xl bg-white/5 border border-white/10 px-3 py-2 outline-none"
-        />
-        <button
-          onClick={addSymbol}
-          disabled={loading}
-          className="rounded-xl bg-emerald-500/20 border border-emerald-400/30 px-4 py-2 hover:bg-emerald-500/25 disabled:opacity-50"
-        >
-          {loading ? "Adding..." : "Add"}
-        </button>
-      </div>
-
-      {error ? (
-        <div className="rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
-        </div>
-      ) : null}
-
-      {message ? (
-        <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
-          {message}
-        </div>
-      ) : null}
-
-      <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
-        <div className="grid grid-cols-12 px-4 py-3 text-xs uppercase tracking-wider opacity-70 border-b border-white/10">
-          <div className="col-span-2">Symbol</div>
-          <div className="col-span-2">Enabled</div>
-          <div className="col-span-6">Notes</div>
-          <div className="col-span-2 text-right">Actions</div>
-        </div>
-
-        {sortedRows.length === 0 ? (
-          <div className="px-4 py-6 opacity-70">No symbols yet.</div>
-        ) : (
-          sortedRows.map((r) => (
-            <div
-              key={String(r.id)}
-              className="grid grid-cols-12 px-4 py-3 border-b border-white/5 items-center gap-2"
-            >
-              <div className="col-span-2 font-semibold">{r.symbol}</div>
-
-              <div className="col-span-2">
+          <div className="inline-flex w-fit rounded-xl border border-white/10 bg-white/5 p-1">
+            {(["7D", "30D", "1Y"] as Timeframe[]).map((tf) => {
+              const active = timeframe === tf;
+              return (
                 <button
-                  onClick={() => toggle(r.id, !r.enabled)}
-                  disabled={busyId === r.id}
-                  className={`rounded-lg px-3 py-1 border disabled:opacity-50 ${
-                    r.enabled
-                      ? "border-emerald-400/30 bg-emerald-500/15"
-                      : "border-white/10 bg-white/5"
+                  key={tf}
+                  onClick={() => setTimeframe(tf)}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                    active
+                      ? "bg-emerald-500 text-black"
+                      : "text-white/70 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  {r.enabled ? "ON" : "OFF"}
+                  {tf}
                 </button>
-              </div>
+              );
+            })}
+          </div>
+        </div>
 
-              <div className="col-span-6 flex gap-2">
-                <input
-                  value={noteDrafts[String(r.id)] ?? ""}
-                  onChange={(e) =>
-                    setNoteDrafts((prev) => ({
-                      ...prev,
-                      [String(r.id)]: e.target.value,
-                    }))
-                  }
-                  placeholder="Notes..."
-                  className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 outline-none text-sm"
-                />
-                <button
-                  onClick={() => saveNotes(r.id)}
-                  disabled={busyId === r.id}
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
-                >
-                  Save
-                </button>
-              </div>
-
-              <div className="col-span-2 text-right">
-                <button
-                  onClick={() => remove(r.id)}
-                  disabled={busyId === r.id}
-                  className="text-sm opacity-70 hover:opacity-100 disabled:opacity-50"
-                >
-                  remove
-                </button>
-              </div>
+        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="text-xs uppercase tracking-[0.18em] text-white/45">
+              Realized P/L
             </div>
-          ))
-        )}
+            <div
+              className={`mt-3 text-3xl font-semibold ${
+                summary.totalRealized >= 0 ? "text-emerald-400" : "text-red-400"
+              }`}
+            >
+              {formatMoney(summary.totalRealized)}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="text-xs uppercase tracking-[0.18em] text-white/45">
+              Open P/L
+            </div>
+            <div
+              className={`mt-3 text-3xl font-semibold ${
+                summary.totalOpen >= 0 ? "text-emerald-400" : "text-red-400"
+              }`}
+            >
+              {formatMoney(summary.totalOpen)}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="text-xs uppercase tracking-[0.18em] text-white/45">
+              Win Rate
+            </div>
+            <div className="mt-3 text-3xl font-semibold text-white">
+              {formatPct(summary.overallWinRate)}
+            </div>
+            <div className="mt-2 text-sm text-white/50">
+              {summary.totalTrades} total trades
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="text-xs uppercase tracking-[0.18em] text-white/45">
+              Best Symbol
+            </div>
+            <div className="mt-3 text-3xl font-semibold text-white">
+              {summary.bestSymbol?.symbol || "—"}
+            </div>
+            <div className="mt-2 text-sm text-white/50">
+              {summary.bestSymbol
+                ? formatMoney(summary.bestSymbol.realizedPL)
+                : "No data yet"}
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+          <div className="border-b border-white/10 px-5 py-4">
+            <h2 className="text-lg font-medium">Ticker Breakdown</h2>
+          </div>
+
+          {loading ? (
+            <div className="px-5 py-10 text-sm text-white/60">Loading symbols...</div>
+          ) : error ? (
+            <div className="px-5 py-10 text-sm text-red-400">{error}</div>
+          ) : rows.length === 0 ? (
+            <div className="px-5 py-10 text-sm text-white/60">
+              No symbol data available for this timeframe.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-white/[0.03] text-left text-white/50">
+                  <tr>
+                    <th className="px-5 py-4 font-medium">Symbol</th>
+                    <th className="px-5 py-4 font-medium">Realized P/L</th>
+                    <th className="px-5 py-4 font-medium">Open P/L</th>
+                    <th className="px-5 py-4 font-medium">Total P/L</th>
+                    <th className="px-5 py-4 font-medium">Win Rate</th>
+                    <th className="px-5 py-4 font-medium">Trades</th>
+                    <th className="px-5 py-4 font-medium">Wins</th>
+                    <th className="px-5 py-4 font-medium">Losses</th>
+                    <th className="px-5 py-4 font-medium">Avg Win</th>
+                    <th className="px-5 py-4 font-medium">Avg Loss</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.symbol} className="border-t border-white/10">
+                      <td className="px-5 py-4 font-medium text-white">{row.symbol}</td>
+                      <td
+                        className={`px-5 py-4 ${
+                          row.realizedPL >= 0 ? "text-emerald-400" : "text-red-400"
+                        }`}
+                      >
+                        {formatMoney(row.realizedPL)}
+                      </td>
+                      <td
+                        className={`px-5 py-4 ${
+                          row.openPL >= 0 ? "text-emerald-400" : "text-red-400"
+                        }`}
+                      >
+                        {formatMoney(row.openPL)}
+                      </td>
+                      <td
+                        className={`px-5 py-4 ${
+                          row.totalPL >= 0 ? "text-emerald-400" : "text-red-400"
+                        }`}
+                      >
+                        {formatMoney(row.totalPL)}
+                      </td>
+                      <td className="px-5 py-4 text-white">{formatPct(row.winRate)}</td>
+                      <td className="px-5 py-4 text-white">{row.trades}</td>
+                      <td className="px-5 py-4 text-white">{row.wins}</td>
+                      <td className="px-5 py-4 text-white">{row.losses}</td>
+                      <td className="px-5 py-4 text-emerald-400">
+                        {formatMoney(row.avgWin)}
+                      </td>
+                      <td className="px-5 py-4 text-red-400">
+                        {formatMoney(row.avgLoss)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

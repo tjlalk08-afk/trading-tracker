@@ -3,7 +3,9 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+  let res = NextResponse.next({
+    request: req,
+  });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +17,7 @@ export async function middleware(req: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
+            req.cookies.set(name, value);
             res.cookies.set(name, value, options);
           });
         },
@@ -27,23 +30,22 @@ export async function middleware(req: NextRequest) {
 
   if (!isDashboard) return res;
 
-  const { data: userRes } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Not logged in -> send to login (or "/")
-  if (!userRes?.user) {
+  if (!user) {
     const url = req.nextUrl.clone();
-    url.pathname = "/login"; // change to "/" if you want homepage to be login
+    url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  // Logged in but not approved -> send to /pending
   const { data: profile, error } = await supabase
     .from("profiles")
     .select("approved")
-    .eq("id", userRes.user.id)
+    .eq("id", user.id)
     .single();
 
-  // If profile missing or not approved, block dashboard access
   if (error || !profile?.approved) {
     const url = req.nextUrl.clone();
     url.pathname = "/pending";
