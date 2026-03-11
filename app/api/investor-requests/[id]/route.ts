@@ -1,223 +1,207 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { requireAdminApi } from "@/lib/requireAdmin";
+import { NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type SnapshotRow = {
-  live_equity?: number | null;
-  equity?: number | null;
-  account_equity?: number | null;
-};
+const FUND_EQUITY = 7691.68;
+const TOTAL_UNITS = 10000;
+const UNIT_PRICE = FUND_EQUITY / TOTAL_UNITS;
+
+function formatDisplayDate(value: string | null | undefined) {
+  if (!value) return "—";
+
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date(value));
+}
 
 export async function PATCH(
-  req: NextRequest,
+  req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const adminCheck = await requireAdminApi();
-
-    if (!adminCheck.ok) {
-      return NextResponse.json({ error: adminCheck.error }, { status: adminCheck.status });
-    }
-
     const { id } = await context.params;
+
+    const supabase = await supabaseServer();
+    const admin = getSupabaseAdmin();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("role, approved")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const isAdmin = profile?.role === "admin" && profile?.approved === true;
+
+    if (!isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
-    const action = body?.action as "approve" | "reject" | "complete" | undefined;
+    const action = String(body?.action || "").trim();
 
-    if (!id) {
-      return NextResponse.json({ error: "Missing request id" }, { status: 400 });
+    if (action !== "approve" && action !== "decline") {
+      return NextResponse.json({ error: "Invalid action." }, { status: 400 });
     }
 
-    if (!action || !["approve", "reject", "complete"].includes(action)) {
-      return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-    }
-
-    const supabase = supabaseAdmin;
-
-    const { data: requestRow, error: requestError } = await supabase
+    const { data: existingRequest, error: existingError } = await admin
       .from("investor_requests")
       .select("*")
       .eq("id", id)
       .maybeSingle();
 
-    if (requestError) {
-      return NextResponse.json({ error: requestError.message }, { status: 500 });
+    if (existingError) {
+      return NextResponse.json({ error: existingError.message }, { status: 500 });
     }
 
-    if (!requestRow) {
-      return NextResponse.json({ error: "Request not found" }, { status: 404 });
+    if (!existingRequest) {
+      return NextResponse.json({ error: "Request not found." }, { status: 404 });
     }
 
-    if (action === "approve") {
-      const { error } = await supabase
-        .from("investor_requests")
-        .update({
-          status: "approved",
-          reviewed_by: "Lucas",
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      return NextResponse.json({ ok: true, status: "approved" });
-    }
-
-    if (action === "reject") {
-      const { error } = await supabase
-        .from("investor_requests")
-        .update({
-          status: "rejected",
-          reviewed_by: "Lucas",
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      return NextResponse.json({ ok: true, status: "rejected" });
-    }
-
-    if (action === "complete") {
-      if (requestRow.status === "completed") {
-        return NextResponse.json(
-          { error: "Request already completed" },
-          { status: 400 }
-        );
-      }
-
-      if (requestRow.request_type === "transfer") {
-        return NextResponse.json(
-          { error: "Transfer completion not implemented yet" },
-          { status: 400 }
-        );
-      }
-
-      const { data: latestSnapshot, error: snapshotError } = await supabase
-        .from("dashboard_snapshots")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (snapshotError) {
-        return NextResponse.json({ error: snapshotError.message }, { status: 500 });
-      }
-
-      const snap = (latestSnapshot ?? {}) as SnapshotRow;
-      const totalEquity = Number(
-        snap.live_equity ?? snap.equity ?? snap.account_equity ?? 0
+    if (existingRequest.status !== "Pending") {
+      return NextResponse.json(
+        { error: "Only pending requests can be updated." },
+        { status: 400 }
       );
+    }
 
-      const { data: allTxns, error: txnsError } = await supabase
-        .from("investor_transactions")
-        .select("txn_type, units");
-
-      if (txnsError) {
-        return NextResponse.json({ error: txnsError.message }, { status: 500 });
-      }
-
-      let totalUnits = 0;
-      for (const txn of allTxns ?? []) {
-        const units = Number(txn.units ?? 0);
-        if (txn.txn_type === "withdrawal") totalUnits -= units;
-        else totalUnits += units;
-      }
-
-      if (totalUnits <= 0) {
-        return NextResponse.json(
-          { error: "Cannot compute unit price: totalUnits <= 0" },
-          { status: 400 }
-        );
-      }
-
-      const unitPrice = totalEquity / totalUnits;
-      const amount = Number(requestRow.amount ?? 0);
-
-      if (!amount || amount <= 0) {
-        return NextResponse.json(
-          { error: "Request amount must be greater than 0" },
-          { status: 400 }
-        );
-      }
-
-      const units = amount / unitPrice;
-
-      if (requestRow.request_type === "withdrawal") {
-        const { data: memberTxns, error: memberTxnsError } = await supabase
-          .from("investor_transactions")
-          .select("txn_type, units")
-          .eq("member_id", requestRow.member_id);
-
-        if (memberTxnsError) {
-          return NextResponse.json({ error: memberTxnsError.message }, { status: 500 });
-        }
-
-        let memberUnits = 0;
-        for (const txn of memberTxns ?? []) {
-          const txnUnits = Number(txn.units ?? 0);
-          if (txn.txn_type === "withdrawal") memberUnits -= txnUnits;
-          else memberUnits += txnUnits;
-        }
-
-        if (units > memberUnits) {
-          return NextResponse.json(
-            { error: "Withdrawal exceeds member's available units" },
-            { status: 400 }
-          );
-        }
-      }
-
-      const txnType = requestRow.request_type === "deposit" ? "deposit" : "withdrawal";
-
-      const { error: insertTxnError } = await supabase
-        .from("investor_transactions")
-        .insert({
-          member_id: requestRow.member_id,
-          txn_type: txnType,
-          amount,
-          units,
-          notes: `Posted from investor request ${requestRow.id}`,
-          effective_at: new Date().toISOString(),
-        });
-
-      if (insertTxnError) {
-        return NextResponse.json({ error: insertTxnError.message }, { status: 500 });
-      }
-
-      const { error: updateReqError } = await supabase
+    if (action === "decline") {
+      const { data: declinedRequest, error: declineError } = await admin
         .from("investor_requests")
         .update({
-          status: "completed",
-          reviewed_by: "Lucas",
+          status: "Declined",
+          reviewed_by: user.id,
           reviewed_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-          units,
         })
-        .eq("id", id);
+        .eq("id", id)
+        .select("*")
+        .single();
 
-      if (updateReqError) {
-        return NextResponse.json({ error: updateReqError.message }, { status: 500 });
+      if (declineError || !declinedRequest) {
+        return NextResponse.json(
+          { error: declineError?.message || "Failed to decline request." },
+          { status: 500 }
+        );
       }
+
+      await admin.from("investor_request_audit_log").insert({
+        request_id: declinedRequest.id,
+        action: "DECLINED",
+        actor_user_id: user.id,
+        actor_email: user.email ?? null,
+        snapshot: declinedRequest,
+      });
 
       return NextResponse.json({
         ok: true,
-        status: "completed",
-        unitPrice,
-        units,
+        request: {
+          id: declinedRequest.id,
+          member: declinedRequest.member_name,
+          type: declinedRequest.request_type,
+          amount: Number(declinedRequest.amount ?? 0),
+          status: declinedRequest.status,
+          createdAt: formatDisplayDate(declinedRequest.created_at),
+          note: declinedRequest.note ?? undefined,
+          transferTo: declinedRequest.to_member_name ?? undefined,
+        },
       });
     }
 
-    return NextResponse.json({ error: "Unhandled action" }, { status: 400 });
-  } catch (err: any) {
+    const nowIso = new Date().toISOString();
+
+    const { data: completedRequest, error: approveError } = await admin
+      .from("investor_requests")
+      .update({
+        status: "Completed",
+        reviewed_by: user.id,
+        reviewed_at: nowIso,
+        completed_at: nowIso,
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (approveError || !completedRequest) {
+      return NextResponse.json(
+        { error: approveError?.message || "Failed to approve request." },
+        { status: 500 }
+      );
+    }
+
+    const { data: postedTransaction, error: postedError } = await admin
+      .from("investor_posted_transactions")
+      .insert({
+        request_id: completedRequest.id,
+        member_name: completedRequest.member_name,
+        transaction_type: completedRequest.request_type,
+        amount: completedRequest.amount,
+        units: Number(completedRequest.amount ?? 0) / UNIT_PRICE,
+        posted_by: user.id,
+        to_member_name: completedRequest.to_member_name ?? null,
+      })
+      .select("*")
+      .single();
+
+    if (postedError || !postedTransaction) {
+      return NextResponse.json(
+        { error: postedError?.message || "Failed to create posted transaction." },
+        { status: 500 }
+      );
+    }
+
+    await admin.from("investor_request_audit_log").insert({
+      request_id: completedRequest.id,
+      action: "APPROVED",
+      actor_user_id: user.id,
+      actor_email: user.email ?? null,
+      snapshot: {
+        request: completedRequest,
+        postedTransaction,
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      request: {
+        id: completedRequest.id,
+        member: completedRequest.member_name,
+        type: completedRequest.request_type,
+        amount: Number(completedRequest.amount ?? 0),
+        status: completedRequest.status,
+        createdAt: formatDisplayDate(completedRequest.created_at),
+        note: completedRequest.note ?? undefined,
+        transferTo: completedRequest.to_member_name ?? undefined,
+      },
+      postedTransaction: {
+        member: postedTransaction.member_name,
+        type: postedTransaction.transaction_type,
+        amount: Number(postedTransaction.amount ?? 0),
+        units: Number(postedTransaction.units ?? 0),
+        when: formatDisplayDate(postedTransaction.posted_at),
+        transferTo: postedTransaction.to_member_name ?? undefined,
+      },
+    });
+  } catch (error) {
     return NextResponse.json(
-      { error: err.message || "Unexpected error" },
+      {
+        error: error instanceof Error ? error.message : "Unexpected server error.",
+      },
       { status: 500 }
     );
   }

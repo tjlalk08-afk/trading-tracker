@@ -1,60 +1,143 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
+const VALID_REQUEST_TYPES = new Set(["Deposit", "Withdrawal", "Transfer"]);
+
+function formatDisplayDate(value: string | null | undefined) {
+  if (!value) return "—";
+
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date(value));
+}
+
+export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const supabase = await supabaseServer();
+    const admin = getSupabaseAdmin();
 
-    const member_id = body?.member_id;
-    const request_type = body?.request_type;
-    const amount = body?.amount ?? null;
-    const target_member_id = body?.target_member_id ?? null;
-    const note = body?.note ?? null;
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    if (!member_id) {
-      return NextResponse.json({ error: "member_id is required" }, { status: 400 });
-    }
-
-    if (!["deposit", "withdrawal", "transfer"].includes(request_type)) {
-      return NextResponse.json({ error: "Invalid request_type" }, { status: 400 });
-    }
-
-    if (
-      (request_type === "deposit" || request_type === "withdrawal") &&
-      (!amount || Number(amount) <= 0)
-    ) {
-      return NextResponse.json({ error: "Amount must be greater than 0" }, { status: 400 });
-    }
-
-    if (request_type === "transfer" && !target_member_id) {
+    if (userError) {
       return NextResponse.json(
-        { error: "target_member_id is required for transfers" },
-        { status: 400 }
+        { error: userError.message || "Failed to read auth user." },
+        { status: 401 }
       );
     }
 
-    const supabase = supabaseAdmin;
-
-    const { error } = await supabase.from("investor_requests").insert({
-      member_id,
-      request_type,
-      amount,
-      target_member_id,
-      note,
-      status: "pending",
-    });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return NextResponse.json({ ok: true });
-  } catch (err: any) {
+    const body = await req.json();
+
+    const memberName = String(body?.memberName || "").trim();
+    const requestType = String(body?.requestType || "").trim();
+    const amount = Number(body?.amount);
+    const transferToMember =
+      typeof body?.transferToMember === "string" && body.transferToMember.trim().length > 0
+        ? body.transferToMember.trim()
+        : null;
+    const note =
+      typeof body?.note === "string" && body.note.trim().length > 0
+        ? body.note.trim()
+        : null;
+
+    if (!memberName) {
+      return NextResponse.json({ error: "Member name is required." }, { status: 400 });
+    }
+
+    if (!VALID_REQUEST_TYPES.has(requestType)) {
+      return NextResponse.json({ error: "Invalid request type." }, { status: 400 });
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json({ error: "Amount must be greater than 0." }, { status: 400 });
+    }
+
+    if (requestType === "Transfer") {
+      if (!transferToMember) {
+        return NextResponse.json({ error: "Transfer To is required." }, { status: 400 });
+      }
+
+      if (transferToMember === memberName) {
+        return NextResponse.json(
+          { error: "Transfer To must be a different member." },
+          { status: 400 }
+        );
+      }
+    }
+
+    const { data: insertedRequest, error: insertError } = await admin
+      .from("investor_requests")
+      .insert({
+        member_name: memberName,
+        request_type: requestType,
+        amount,
+        note,
+        status: "Pending",
+        created_by: user.id,
+        to_member_name: requestType === "Transfer" ? transferToMember : null,
+      })
+      .select("*")
+      .single();
+
+    if (insertError || !insertedRequest) {
+      return NextResponse.json(
+        { error: insertError?.message || "Failed to create request." },
+        { status: 500 }
+      );
+    }
+
+    const { error: auditError } = await admin.from("investor_request_audit_log").insert({
+      request_id: insertedRequest.id,
+      action: "CREATED",
+      actor_user_id: user.id,
+      actor_email: user.email ?? null,
+      snapshot: insertedRequest,
+    });
+
+    if (auditError) {
+      return NextResponse.json(
+        { error: auditError.message || "Failed to write audit log." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      request: {
+        id: insertedRequest.id,
+        member: insertedRequest.member_name,
+        type: insertedRequest.request_type,
+        amount: Number(insertedRequest.amount ?? 0),
+        status: insertedRequest.status,
+        createdAt: formatDisplayDate(insertedRequest.created_at),
+        note: insertedRequest.note ?? undefined,
+        transferTo: insertedRequest.to_member_name ?? undefined,
+      },
+    });
+  } catch (error) {
     return NextResponse.json(
-      { error: err.message || "Unexpected error" },
+      {
+        error:
+          error instanceof Error
+            ? `${error.name}: ${error.message}`
+            : "Unexpected server error.",
+      },
       { status: 500 }
     );
   }
