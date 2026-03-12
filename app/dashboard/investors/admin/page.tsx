@@ -83,7 +83,7 @@ export default async function InvestorsAdminPage() {
   const initialRequests =
     (requestRows as InvestorRequestRow[] | null)?.map((row) => ({
       id: row.id,
-      member: row.member_name,
+      member: row.member_name ?? "",
       type: row.request_type as "Deposit" | "Withdrawal" | "Transfer",
       amount: Number(row.amount ?? 0),
       status: row.status as "Pending" | "Approved" | "Declined" | "Completed",
@@ -94,7 +94,7 @@ export default async function InvestorsAdminPage() {
 
   const initialPostedTransactions =
     (postedTransactionRows as PostedTransactionRow[] | null)?.map((row) => ({
-      member: row.member_name,
+      member: row.member_name ?? "",
       type: row.transaction_type as "Deposit" | "Withdrawal" | "Grant" | "Transfer",
       amount: Number(row.amount ?? 0),
       units: Number(row.units ?? 0),
