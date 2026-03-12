@@ -44,18 +44,30 @@ type DashboardData = {
   live_cash?: number | string | null;
   live_equity?: number | string | null;
   live_realized_pl?: number | string | null;
+  live_realized_pnl?: number | string | null;
   live_open_pl?: number | string | null;
+  live_open_pnl?: number | string | null;
   live_total_pl?: number | string | null;
+  live_total_pnl?: number | string | null;
 
   test_cash?: number | string | null;
   test_equity?: number | string | null;
   test_realized_pl?: number | string | null;
+  test_realized_pnl?: number | string | null;
   test_open_pl?: number | string | null;
+  test_open_pnl?: number | string | null;
   test_total_pl?: number | string | null;
+  test_total_pnl?: number | string | null;
 
   positions?: Position[];
+  live_positions?: Position[] | Record<string, Position>;
+  positions_live?: Position[] | Record<string, Position>;
+  test_positions?: Position[] | Record<string, Position>;
+  positions_test?: Position[] | Record<string, Position>;
   closed_trades_live?: ClosedTrade[];
+  live_closed_trades?: ClosedTrade[];
   closed_trades_test?: ClosedTrade[];
+  test_closed_trades?: ClosedTrade[];
 };
 
 type DashboardResponse =
@@ -120,17 +132,85 @@ function formatCompactTime(value?: string | null) {
 }
 
 function normalizeDashboardPayload(json: DashboardResponse): DashboardData {
-  if (
+  const payload =
     typeof json === "object" &&
     json !== null &&
     "data" in json &&
     json.data &&
     typeof json.data === "object"
-  ) {
-    return json.data;
+      ? (json.data as DashboardData)
+      : ((json as DashboardData) ?? {});
+
+  const liveRealized =
+    payload.live_realized_pl ?? payload.live_realized_pnl ?? payload.realized_pl;
+  const liveOpen =
+    payload.live_open_pl ?? payload.live_open_pnl ?? payload.open_pl;
+  const liveTotal =
+    payload.live_total_pl ?? payload.live_total_pnl ?? payload.total_pl;
+  const testRealized = payload.test_realized_pl ?? payload.test_realized_pnl ?? 0;
+  const testOpen = payload.test_open_pl ?? payload.test_open_pnl ?? 0;
+  const testTotal = payload.test_total_pl ?? payload.test_total_pnl ?? 0;
+
+  return {
+    ...payload,
+    live_realized_pl: liveRealized,
+    live_open_pl: liveOpen,
+    live_total_pl: liveTotal,
+    test_realized_pl: testRealized,
+    test_open_pl: testOpen,
+    test_total_pl: testTotal,
+    realized_pl: payload.realized_pl ?? liveRealized,
+    open_pl: payload.open_pl ?? liveOpen,
+    total_pl: payload.total_pl ?? liveTotal,
+  };
+}
+
+function asPositionArray(value: unknown): Position[] {
+  if (Array.isArray(value)) {
+    return value;
   }
 
-  return (json as DashboardData) ?? {};
+  if (typeof value === "object" && value !== null) {
+    return Object.values(value).filter(
+      (row): row is Position => typeof row === "object" && row !== null,
+    );
+  }
+
+  return [];
+}
+
+function asTradeArray(value: unknown): ClosedTrade[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function livePositionsFromPayload(data: DashboardData | null): Position[] {
+  if (!data) return [];
+
+  const positions = asPositionArray(data.positions);
+  if (positions.length > 0) return positions;
+
+  const explicitLive = asPositionArray(data.live_positions);
+  if (explicitLive.length > 0) return explicitLive;
+
+  return asPositionArray(data.positions_live);
+}
+
+function closedLiveTradesFromPayload(data: DashboardData | null): ClosedTrade[] {
+  if (!data) return [];
+
+  const primary = asTradeArray(data.closed_trades_live);
+  if (primary.length > 0) return primary;
+
+  return asTradeArray(data.live_closed_trades);
+}
+
+function closedTestTradesFromPayload(data: DashboardData | null): ClosedTrade[] {
+  if (!data) return [];
+
+  const primary = asTradeArray(data.closed_trades_test);
+  if (primary.length > 0) return primary;
+
+  return asTradeArray(data.test_closed_trades);
 }
 
 function StatCard({
@@ -339,14 +419,12 @@ export default function LivePage() {
   }, []);
 
   const positions = useMemo(
-    () => (Array.isArray(data?.positions) ? data.positions : []),
+    () => livePositionsFromPayload(data),
     [data],
   );
 
   const closedLive = useMemo(() => {
-    const rows = Array.isArray(data?.closed_trades_live)
-      ? [...data.closed_trades_live]
-      : [];
+    const rows = [...closedLiveTradesFromPayload(data)];
     rows.sort(
       (a, b) =>
         new Date(b.closed_at ?? 0).getTime() -
@@ -356,9 +434,7 @@ export default function LivePage() {
   }, [data]);
 
   const closedTest = useMemo(() => {
-    const rows = Array.isArray(data?.closed_trades_test)
-      ? [...data.closed_trades_test]
-      : [];
+    const rows = [...closedTestTradesFromPayload(data)];
     rows.sort(
       (a, b) =>
         new Date(b.closed_at ?? 0).getTime() -

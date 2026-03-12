@@ -54,6 +54,26 @@ type HistoryPayload = {
   error?: string;
 };
 
+type HealthCheck = {
+  status: "ok" | "warn" | "error";
+  message: string;
+  detail?: string;
+};
+
+type HealthPayload = {
+  ok: boolean;
+  checked_at?: string;
+  checks?: {
+    config?: HealthCheck;
+    bot?: HealthCheck;
+    supabase?: HealthCheck;
+    snapshot?: HealthCheck;
+    trades?: HealthCheck;
+    cron?: HealthCheck;
+  };
+  error?: string;
+};
+
 type ChartRange = "7D" | "30D" | "90D" | "ALL";
 
 function money(n: number | null | undefined) {
@@ -650,6 +670,18 @@ function InfoRow({
   );
 }
 
+function healthTone(status: "ok" | "warn" | "error" | undefined) {
+  if (status === "ok") {
+    return "border-emerald-400/20 bg-emerald-500/10 text-emerald-300";
+  }
+
+  if (status === "warn") {
+    return "border-amber-400/20 bg-amber-500/10 text-amber-300";
+  }
+
+  return "border-red-400/20 bg-red-500/10 text-red-300";
+}
+
 function RangeButton({
   active,
   children,
@@ -840,19 +872,25 @@ function EquityChart({
 export default function DashboardHome() {
   const [latest, setLatest] = useState<Snapshot | null>(null);
   const [history, setHistory] = useState<Snapshot[]>([]);
+  const [health, setHealth] = useState<HealthPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [chartRange, setChartRange] = useState<ChartRange>("30D");
 
   const loadAll = useCallback(async () => {
-    const [latestRes, historyRes] = await Promise.all([
+    const [latestRes, historyRes, healthRes] = await Promise.all([
       fetch("/api/dashboard-latest", { cache: "no-store" }),
       fetch("/api/dashboard-history", { cache: "no-store" }),
+      fetch("/api/health", { cache: "no-store" }),
     ]);
 
     const latestJson: LatestPayload = await latestRes.json();
     const historyJson: HistoryPayload = await historyRes.json();
+    const healthJson: HealthPayload = await healthRes.json().catch(() => ({
+      ok: false,
+      error: "Failed to load system health",
+    }));
 
     if (!latestRes.ok || !latestJson?.ok) {
       throw new Error(latestJson?.error || "Failed to load latest snapshot");
@@ -864,6 +902,7 @@ export default function DashboardHome() {
 
     setLatest(latestJson.data ?? null);
     setHistory(historyJson.data ?? []);
+    setHealth(healthJson);
   }, []);
 
   async function refreshSnapshot() {
@@ -894,8 +933,8 @@ export default function DashboardHome() {
       }
 
       await loadAll();
-    } catch (err: any) {
-      setError(err?.message || "Failed to refresh snapshot");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to refresh snapshot");
     } finally {
       setRefreshing(false);
       setLoading(false);
@@ -907,8 +946,8 @@ export default function DashboardHome() {
       try {
         setError("");
         await loadAll();
-      } catch (err: any) {
-        setError(err?.message || "Failed to load dashboard data");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to load dashboard data");
       } finally {
         setLoading(false);
       }
@@ -1107,6 +1146,50 @@ export default function DashboardHome() {
           <div className="grid grid-cols-1 gap-2.5 xl:grid-cols-12">
             <div className="xl:col-span-8">
               <div className="space-y-2.5">
+                <Surface className="p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <SectionLabel>System Status</SectionLabel>
+                      <div className="mt-1 text-[2.05rem] font-semibold text-white">
+                        Runtime Health
+                      </div>
+                      <div className="mt-1 text-sm text-white/55">
+                        Quick check for config, bot upstream, Supabase, saved snapshots, and daily cron coverage.
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs text-white/60">
+                      Checked: <span className="text-white/85">{timeAgo(health?.checked_at)}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {[
+                      ["Config", health?.checks?.config],
+                      ["Bot Upstream", health?.checks?.bot],
+                      ["Supabase", health?.checks?.supabase],
+                      ["Snapshots", health?.checks?.snapshot],
+                      ["Trades", health?.checks?.trades],
+                      ["Cron", health?.checks?.cron],
+                    ].map(([label, check]) => (
+                      <div
+                        key={label}
+                        className={`rounded-xl border px-3 py-3 ${healthTone(check?.status)}`}
+                      >
+                        <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">
+                          {label}
+                        </div>
+                        <div className="mt-2 text-sm font-semibold">
+                          {check?.message ?? "Unavailable"}
+                        </div>
+                        <div className="mt-1 text-xs opacity-80">
+                          {check?.detail ?? "No extra detail"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Surface>
+
                 <Surface className="p-4">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>

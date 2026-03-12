@@ -41,11 +41,13 @@ export async function GET() {
         headers: { "Cache-Control": "no-store" },
       }
     );
-  } catch (e: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+
     return NextResponse.json(
       {
         ok: false,
-        error: e?.message ?? "Unknown error",
+        error: `Bot dashboard upstream fetch failed: ${message}`,
       },
       {
         status: 500,
