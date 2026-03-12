@@ -7,6 +7,17 @@ export const dynamic = "force-dynamic";
 
 const VALID_REQUEST_TYPES = new Set(["Deposit", "Withdrawal", "Transfer"]);
 
+type InvestorRequestRow = {
+  id: string;
+  member_name: string | null;
+  request_type: string | null;
+  amount: number | string | null;
+  status: string | null;
+  created_at: string | null;
+  note: string | null;
+  to_member_name: string | null;
+};
+
 function formatDisplayDate(value: string | null | undefined) {
   if (!value) return "—";
 
@@ -91,7 +102,7 @@ export async function POST(req: Request) {
         status: "Pending",
         created_by: user.id,
         to_member_name: requestType === "Transfer" ? transferToMember : null,
-      })
+      } as never)
       .select("*")
       .single();
 
@@ -102,13 +113,15 @@ export async function POST(req: Request) {
       );
     }
 
+    const insertedRequestRow = insertedRequest as InvestorRequestRow | null;
+
     const { error: auditError } = await admin.from("investor_request_audit_log").insert({
-      request_id: insertedRequest.id,
+      request_id: insertedRequestRow?.id,
       action: "CREATED",
       actor_user_id: user.id,
       actor_email: user.email ?? null,
-      snapshot: insertedRequest,
-    });
+      snapshot: insertedRequestRow,
+    } as never);
 
     if (auditError) {
       return NextResponse.json(
@@ -120,14 +133,14 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       request: {
-        id: insertedRequest.id,
-        member: insertedRequest.member_name,
-        type: insertedRequest.request_type,
-        amount: Number(insertedRequest.amount ?? 0),
-        status: insertedRequest.status,
-        createdAt: formatDisplayDate(insertedRequest.created_at),
-        note: insertedRequest.note ?? undefined,
-        transferTo: insertedRequest.to_member_name ?? undefined,
+        id: insertedRequestRow?.id,
+        member: insertedRequestRow?.member_name,
+        type: insertedRequestRow?.request_type,
+        amount: Number(insertedRequestRow?.amount ?? 0),
+        status: insertedRequestRow?.status,
+        createdAt: formatDisplayDate(insertedRequestRow?.created_at),
+        note: insertedRequestRow?.note ?? undefined,
+        transferTo: insertedRequestRow?.to_member_name ?? undefined,
       },
     });
   } catch (error) {
