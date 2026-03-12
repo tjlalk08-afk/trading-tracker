@@ -1165,13 +1165,13 @@ export default function DashboardHome() {
 
                   <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
                     {[
-                      ["Config", health?.checks?.config],
-                      ["Bot Upstream", health?.checks?.bot],
-                      ["Supabase", health?.checks?.supabase],
-                      ["Snapshots", health?.checks?.snapshot],
-                      ["Trades", health?.checks?.trades],
-                      ["Cron", health?.checks?.cron],
-                    ].map(([label, check]) => (
+                      { label: "Config", check: health?.checks?.config },
+                      { label: "Bot Upstream", check: health?.checks?.bot },
+                      { label: "Supabase", check: health?.checks?.supabase },
+                      { label: "Snapshots", check: health?.checks?.snapshot },
+                      { label: "Trades", check: health?.checks?.trades },
+                      { label: "Cron", check: health?.checks?.cron },
+                    ].map(({ label, check }) => (
                       <div
                         key={label}
                         className={`rounded-xl border px-3 py-3 ${healthTone(check?.status)}`}
