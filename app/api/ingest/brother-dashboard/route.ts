@@ -294,7 +294,7 @@ async function handleIngest() {
 
   const { data: insertedSnapshot, error: snapshotError } = await supabaseAdmin
     .from("dashboard_snapshots")
-    .insert(snapshot.row)
+    .insert(snapshot.row as never)
     .select()
     .single();
 
@@ -309,7 +309,7 @@ async function handleIngest() {
   if (trades.length > 0) {
     const { error: tradeError } = await supabaseAdmin
       .from("trade_history")
-      .upsert(trades, {
+      .upsert(trades as never, {
         onConflict: "external_trade_id",
       });
 
