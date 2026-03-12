@@ -37,6 +37,11 @@ type TradeHistoryInsert = {
   external_trade_id: string;
 };
 
+type InsertedSnapshotRow = {
+  id: number;
+  snapshot_ts: string | null;
+};
+
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -302,6 +307,8 @@ async function handleIngest() {
     throw new Error(`Snapshot insert failed: ${snapshotError.message}`);
   }
 
+  const savedSnapshot = insertedSnapshot as InsertedSnapshotRow | null;
+
   const trades = extractCompletedTrades(upstream, snapshot.snapshotDate);
 
   let upsertedTrades = 0;
@@ -323,11 +330,11 @@ async function handleIngest() {
   return NextResponse.json({
     ok: true,
     message: "Snapshot saved and trades ingested",
-    snapshot_id: insertedSnapshot?.id ?? null,
+    snapshot_id: savedSnapshot?.id ?? null,
     snapshot_ts: snapshot.snapshotTs,
     completed_trades_found: trades.length,
     completed_trades_upserted: upsertedTrades,
-    data: insertedSnapshot,
+    data: savedSnapshot,
   });
 }
 
