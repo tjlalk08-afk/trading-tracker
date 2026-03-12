@@ -314,7 +314,7 @@ async function saveFallbackSnapshotForToday(
 
   const { data, error } = await supabaseAdmin
     .from("dashboard_snapshots")
-    .insert(snapshot.row)
+    .insert(snapshot.row as never)
     .select("id, snapshot_ts, source, created_at")
     .single();
 
