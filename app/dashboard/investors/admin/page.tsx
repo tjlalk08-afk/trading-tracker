@@ -5,6 +5,32 @@ import { supabaseServer } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
+type ProfileRow = {
+  role: string | null;
+  approved: boolean | null;
+};
+
+type InvestorRequestRow = {
+  id: string;
+  member_name: string | null;
+  request_type: string | null;
+  amount: number | string | null;
+  status: string | null;
+  note: string | null;
+  created_at: string | null;
+  to_member_name: string | null;
+};
+
+type PostedTransactionRow = {
+  id: string;
+  member_name: string | null;
+  transaction_type: string | null;
+  amount: number | string | null;
+  units: number | string | null;
+  posted_at: string | null;
+  to_member_name: string | null;
+};
+
 function formatDisplayDate(value: string | null | undefined) {
   if (!value) return "—";
 
@@ -37,7 +63,8 @@ export default async function InvestorsAdminPage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const isAdmin = profile?.role === "admin" && profile?.approved === true;
+  const profileRow = profile as ProfileRow | null;
+  const isAdmin = profileRow?.role === "admin" && profileRow?.approved === true;
 
   if (!isAdmin) {
     redirect("/dashboard/investors");
@@ -54,7 +81,7 @@ export default async function InvestorsAdminPage() {
     .order("posted_at", { ascending: false });
 
   const initialRequests =
-    requestRows?.map((row) => ({
+    (requestRows as InvestorRequestRow[] | null)?.map((row) => ({
       id: row.id,
       member: row.member_name,
       type: row.request_type as "Deposit" | "Withdrawal" | "Transfer",
@@ -66,7 +93,7 @@ export default async function InvestorsAdminPage() {
     })) ?? [];
 
   const initialPostedTransactions =
-    postedTransactionRows?.map((row) => ({
+    (postedTransactionRows as PostedTransactionRow[] | null)?.map((row) => ({
       member: row.member_name,
       type: row.transaction_type as "Deposit" | "Withdrawal" | "Grant" | "Transfer",
       amount: Number(row.amount ?? 0),

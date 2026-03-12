@@ -9,6 +9,31 @@ const FUND_EQUITY = 7691.68;
 const TOTAL_UNITS = 10000;
 const UNIT_PRICE = FUND_EQUITY / TOTAL_UNITS;
 
+type ProfileRow = {
+  role: string | null;
+  approved: boolean | null;
+};
+
+type InvestorRequestRow = {
+  id: string;
+  member_name: string | null;
+  request_type: string | null;
+  amount: number | string | null;
+  status: string | null;
+  note: string | null;
+  created_at: string | null;
+  to_member_name: string | null;
+};
+
+type PostedTransactionRow = {
+  member_name: string | null;
+  transaction_type: string | null;
+  amount: number | string | null;
+  units: number | string | null;
+  posted_at: string | null;
+  to_member_name: string | null;
+};
+
 function formatDisplayDate(value: string | null | undefined) {
   if (!value) return "—";
 
@@ -47,7 +72,9 @@ export async function PATCH(
       .eq("id", user.id)
       .maybeSingle();
 
-    const isAdmin = profile?.role === "admin" && profile?.approved === true;
+    const profileRow = profile as ProfileRow | null;
+    const isAdmin =
+      profileRow?.role === "admin" && profileRow?.approved === true;
 
     if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -74,7 +101,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Request not found." }, { status: 404 });
     }
 
-    if (existingRequest.status !== "Pending") {
+    const existingRequestRow = existingRequest as InvestorRequestRow | null;
+
+    if (existingRequestRow?.status !== "Pending") {
       return NextResponse.json(
         { error: "Only pending requests can be updated." },
         { status: 400 }
@@ -100,25 +129,27 @@ export async function PATCH(
         );
       }
 
+      const declinedRequestRow = declinedRequest as InvestorRequestRow | null;
+
       await admin.from("investor_request_audit_log").insert({
-        request_id: declinedRequest.id,
+        request_id: declinedRequestRow?.id,
         action: "DECLINED",
         actor_user_id: user.id,
         actor_email: user.email ?? null,
-        snapshot: declinedRequest,
-      });
+        snapshot: declinedRequestRow,
+      } as never);
 
       return NextResponse.json({
         ok: true,
         request: {
-          id: declinedRequest.id,
-          member: declinedRequest.member_name,
-          type: declinedRequest.request_type,
-          amount: Number(declinedRequest.amount ?? 0),
-          status: declinedRequest.status,
-          createdAt: formatDisplayDate(declinedRequest.created_at),
-          note: declinedRequest.note ?? undefined,
-          transferTo: declinedRequest.to_member_name ?? undefined,
+          id: declinedRequestRow?.id,
+          member: declinedRequestRow?.member_name,
+          type: declinedRequestRow?.request_type,
+          amount: Number(declinedRequestRow?.amount ?? 0),
+          status: declinedRequestRow?.status,
+          createdAt: formatDisplayDate(declinedRequestRow?.created_at),
+          note: declinedRequestRow?.note ?? undefined,
+          transferTo: declinedRequestRow?.to_member_name ?? undefined,
         },
       });
     }
@@ -144,17 +175,19 @@ export async function PATCH(
       );
     }
 
+    const completedRequestRow = completedRequest as InvestorRequestRow | null;
+
     const { data: postedTransaction, error: postedError } = await admin
       .from("investor_posted_transactions")
       .insert({
-        request_id: completedRequest.id,
-        member_name: completedRequest.member_name,
-        transaction_type: completedRequest.request_type,
-        amount: completedRequest.amount,
-        units: Number(completedRequest.amount ?? 0) / UNIT_PRICE,
+        request_id: completedRequestRow?.id,
+        member_name: completedRequestRow?.member_name,
+        transaction_type: completedRequestRow?.request_type,
+        amount: completedRequestRow?.amount,
+        units: Number(completedRequestRow?.amount ?? 0) / UNIT_PRICE,
         posted_by: user.id,
-        to_member_name: completedRequest.to_member_name ?? null,
-      })
+        to_member_name: completedRequestRow?.to_member_name ?? null,
+      } as never)
       .select("*")
       .single();
 
@@ -165,36 +198,38 @@ export async function PATCH(
       );
     }
 
+    const postedTransactionRow = postedTransaction as PostedTransactionRow | null;
+
     await admin.from("investor_request_audit_log").insert({
-      request_id: completedRequest.id,
+      request_id: completedRequestRow?.id,
       action: "APPROVED",
       actor_user_id: user.id,
       actor_email: user.email ?? null,
       snapshot: {
-        request: completedRequest,
-        postedTransaction,
+        request: completedRequestRow,
+        postedTransaction: postedTransactionRow,
       },
-    });
+    } as never);
 
     return NextResponse.json({
       ok: true,
       request: {
-        id: completedRequest.id,
-        member: completedRequest.member_name,
-        type: completedRequest.request_type,
-        amount: Number(completedRequest.amount ?? 0),
-        status: completedRequest.status,
-        createdAt: formatDisplayDate(completedRequest.created_at),
-        note: completedRequest.note ?? undefined,
-        transferTo: completedRequest.to_member_name ?? undefined,
+        id: completedRequestRow?.id,
+        member: completedRequestRow?.member_name,
+        type: completedRequestRow?.request_type,
+        amount: Number(completedRequestRow?.amount ?? 0),
+        status: completedRequestRow?.status,
+        createdAt: formatDisplayDate(completedRequestRow?.created_at),
+        note: completedRequestRow?.note ?? undefined,
+        transferTo: completedRequestRow?.to_member_name ?? undefined,
       },
       postedTransaction: {
-        member: postedTransaction.member_name,
-        type: postedTransaction.transaction_type,
-        amount: Number(postedTransaction.amount ?? 0),
-        units: Number(postedTransaction.units ?? 0),
-        when: formatDisplayDate(postedTransaction.posted_at),
-        transferTo: postedTransaction.to_member_name ?? undefined,
+        member: postedTransactionRow?.member_name,
+        type: postedTransactionRow?.transaction_type,
+        amount: Number(postedTransactionRow?.amount ?? 0),
+        units: Number(postedTransactionRow?.units ?? 0),
+        when: formatDisplayDate(postedTransactionRow?.posted_at),
+        transferTo: postedTransactionRow?.to_member_name ?? undefined,
       },
     });
   } catch (error) {
