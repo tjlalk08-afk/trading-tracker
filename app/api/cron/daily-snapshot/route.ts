@@ -19,6 +19,7 @@ type DashboardSnapshotMetaRow = {
   id: number;
   snapshot_ts: string | null;
   created_at: string | null;
+  source?: string | null;
 };
 
 type BotEquityPointRow = {
@@ -328,10 +329,12 @@ async function saveFallbackSnapshotForToday(
     throw new Error(`Fallback snapshot insert failed: ${error.message}`);
   }
 
+  const insertedSnapshot = data as DashboardSnapshotMetaRow | null;
+
   return {
     mode: "fallback",
     source: chosen.source,
-    snapshot: data,
+    snapshot: insertedSnapshot,
   };
 }
 
