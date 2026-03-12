@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 const ADMIN_USER_ID = "be62464a-0923-4068-ac39-dd259486685f";
 
 export async function requireAdminPage() {
-  const supabase = await createClient();
+  const supabase = await supabaseServer();
 
   const {
     data: { user },

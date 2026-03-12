@@ -587,7 +587,10 @@ export default function PerformancePage() {
                               boxShadow:
                                 "0 20px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)",
                             }}
-                            formatter={(value: number | string, name: string) => {
+                            formatter={(
+                              value: number | string | undefined,
+                              name: string | undefined,
+                            ) => {
                               const amount = Number(value ?? 0);
 
                               if (name === "liveEquity") {
@@ -599,7 +602,7 @@ export default function PerformancePage() {
                               if (name === "liveTotalPl") {
                                 return [money(amount), "Live Total P/L"];
                               }
-                              return [money(amount), name];
+                              return [money(amount), name ?? "Value"];
                             }}
                             labelFormatter={(_label, payload) => {
                               const point = payload?.[0]?.payload as
