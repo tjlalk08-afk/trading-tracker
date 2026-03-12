@@ -117,7 +117,7 @@ export async function PATCH(
           status: "Declined",
           reviewed_by: user.id,
           reviewed_at: new Date().toISOString(),
-        })
+        } as never)
         .eq("id", id)
         .select("*")
         .single();
@@ -163,7 +163,7 @@ export async function PATCH(
         reviewed_by: user.id,
         reviewed_at: nowIso,
         completed_at: nowIso,
-      })
+      } as never)
       .eq("id", id)
       .select("*")
       .single();
