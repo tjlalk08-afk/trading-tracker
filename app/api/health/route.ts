@@ -14,6 +14,16 @@ type CheckResult = {
   detail?: string;
 };
 
+type LatestSnapshotRow = {
+  id: number;
+  snapshot_ts: string | null;
+};
+
+type LatestTradeRow = {
+  id: number;
+  closed_at: string | null;
+};
+
 function chicagoDateKey(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: TARGET_TIMEZONE,
@@ -169,8 +179,11 @@ export async function GET() {
       throw new Error(snapshotCountResult.error.message);
     }
 
-    latestSnapshotTs = latestSnapshotResult.data?.snapshot_ts ?? null;
-    latestTradeTs = latestTradeResult.data?.closed_at ?? null;
+    const latestSnapshot = latestSnapshotResult.data as LatestSnapshotRow | null;
+    const latestTrade = latestTradeResult.data as LatestTradeRow | null;
+
+    latestSnapshotTs = latestSnapshot?.snapshot_ts ?? null;
+    latestTradeTs = latestTrade?.closed_at ?? null;
     snapshotCount = snapshotCountResult.count ?? 0;
 
     checks.supabase = {
