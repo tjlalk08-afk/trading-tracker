@@ -15,6 +15,12 @@ type BotSnapshotRow = {
   raw: JsonRecord | null;
 };
 
+type DashboardSnapshotMetaRow = {
+  id: number;
+  snapshot_ts: string | null;
+  created_at: string | null;
+};
+
 type BotEquityPointRow = {
   ts: string | null;
   updated_text: string | null;
@@ -377,7 +383,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const latestChicagoDate = snapshotChicagoDateKey(latestSnapshot?.snapshot_ts);
+  const latestSnapshotRow = latestSnapshot as DashboardSnapshotMetaRow | null;
+  const latestChicagoDate = snapshotChicagoDateKey(latestSnapshotRow?.snapshot_ts);
   if (!force && latestChicagoDate === todayChicago) {
     return NextResponse.json({
       ok: true,
@@ -385,7 +392,7 @@ export async function GET(request: NextRequest) {
       reason: "snapshot-already-saved-for-chicago-date",
       chicagoNow,
       todayChicago,
-      latestSnapshot,
+      latestSnapshot: latestSnapshotRow,
     });
   }
 
