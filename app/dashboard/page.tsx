@@ -422,11 +422,11 @@ function DenseBucketCard({
   const flat = isFlatish(delta);
 
   return (
-    <Surface className="p-3.5">
+    <Surface className="p-3 sm:p-3.5">
       <div className="flex items-center justify-between gap-3">
         <SectionLabel>{title}</SectionLabel>
         <div
-          className={`rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${
+          className={`rounded-full border px-2 py-1 text-[9px] uppercase tracking-[0.14em] sm:px-2.5 sm:text-[10px] sm:tracking-[0.16em] ${
             flat
               ? "border-white/10 bg-white/[0.04] text-white/60"
               : delta > 0
@@ -440,30 +440,30 @@ function DenseBucketCard({
 
       <div
         className={`mt-2 font-semibold leading-none ${pnlTextClass(delta)} ${
-          flat ? "text-[1.65rem]" : "text-[1.95rem]"
+          flat ? "text-[1.35rem] sm:text-[1.65rem]" : "text-[1.6rem] sm:text-[1.95rem]"
         }`}
       >
         {deltaHeadline(delta, "Steady")}
       </div>
 
-      <div className={`mt-1.5 text-sm font-medium ${pnlTextClass(delta)}`}>
+      <div className={`mt-1 text-xs font-medium sm:mt-1.5 sm:text-sm ${pnlTextClass(delta)}`}>
         {deltaSupport(delta, pct)}
       </div>
 
-      <div className="mt-1 text-[11px] text-white/48">{descriptor.sentence}</div>
+      <div className="mt-1 text-[10px] text-white/48 sm:text-[11px]">{descriptor.sentence}</div>
 
-      <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs">
-        <div className="rounded-lg border border-white/10 bg-black/20 px-2.5 py-2">
+      <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] sm:mt-2.5 sm:text-xs">
+        <div className="rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 sm:px-2.5 sm:py-2">
           <div className="uppercase tracking-[0.16em] text-white/35">Start</div>
           <div className="mt-1 font-medium text-white/80">{compactMoney(startEquity)}</div>
         </div>
-        <div className="rounded-lg border border-white/10 bg-black/20 px-2.5 py-2">
+        <div className="rounded-lg border border-white/10 bg-black/20 px-2 py-1.5 sm:px-2.5 sm:py-2">
           <div className="uppercase tracking-[0.16em] text-white/35">Now</div>
           <div className="mt-1 font-medium text-white/80">{compactMoney(endEquity)}</div>
         </div>
       </div>
 
-      <div className="mt-2 text-[11px] text-white/45">Since {startLabel}</div>
+      <div className="mt-2 text-[10px] text-white/45 sm:text-[11px]">Since {startLabel}</div>
     </Surface>
   );
 }
@@ -480,17 +480,17 @@ function TopCard({
   tone?: string;
 }) {
   return (
-    <Surface className="h-full p-3.5">
-      <div className="mb-3 flex items-center gap-2">
+    <Surface className="h-full p-3 sm:p-3.5">
+      <div className="mb-2.5 flex items-center gap-2 sm:mb-3">
         <div className="h-[2px] w-8 rounded-full bg-emerald-400/80" />
         <div className="h-[2px] w-3 rounded-full bg-cyan-400/50" />
       </div>
 
       <SectionLabel>{title}</SectionLabel>
 
-      <div className={`mt-2 text-2xl font-semibold ${tone}`}>{value}</div>
+      <div className={`mt-1.5 text-xl font-semibold sm:mt-2 sm:text-2xl ${tone}`}>{value}</div>
 
-      {sub ? <div className="mt-2 text-xs text-white/55">{sub}</div> : null}
+      {sub ? <div className="mt-1.5 text-[11px] text-white/55 sm:mt-2 sm:text-xs">{sub}</div> : null}
     </Surface>
   );
 }
@@ -507,30 +507,30 @@ function SnapshotStatusCard({
   updatedAt: string | null | undefined;
 }) {
   return (
-    <Surface className="h-full p-3.5">
-      <div className="mb-3 flex items-center gap-2">
+    <Surface className="h-full p-3 sm:p-3.5">
+      <div className="mb-2.5 flex items-center gap-2 sm:mb-3">
         <div className="h-[2px] w-8 rounded-full bg-emerald-400/80" />
         <div className="h-[2px] w-3 rounded-full bg-cyan-400/50" />
       </div>
 
       <SectionLabel>Snapshot Status</SectionLabel>
 
-      <div className="mt-2 text-2xl font-semibold text-white">{money(equity)}</div>
+      <div className="mt-1.5 text-xl font-semibold text-white sm:mt-2 sm:text-2xl">{money(equity)}</div>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <div
-          className={`rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] ${freshness.badgeClass}`}
+          className={`rounded-full border px-2 py-1 text-[9px] uppercase tracking-[0.14em] sm:px-2.5 sm:text-[10px] sm:tracking-[0.18em] ${freshness.badgeClass}`}
         >
           {freshness.label}
         </div>
-        <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/60">
+        <div className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-white/60 sm:px-2.5 sm:text-[10px] sm:tracking-[0.18em]">
           Saved Snapshot
         </div>
       </div>
 
-      <div className="mt-2 text-xs text-white/55">{freshness.detail}</div>
+      <div className="mt-2 text-[11px] text-white/55 sm:text-xs">{freshness.detail}</div>
 
-      <div className="mt-3 space-y-1.5 text-xs text-white/58">
+      <div className="mt-2.5 space-y-1 text-[11px] text-white/58 sm:mt-3 sm:space-y-1.5 sm:text-xs">
         <div>
           Last saved: <span className="font-medium text-white/80">{snapshotAge}</span>
         </div>
@@ -555,12 +555,12 @@ function SmallMetric({
   tone?: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
+    <div className="rounded-xl border border-white/10 bg-black/20 px-2.5 py-2.5 sm:px-3 sm:py-3">
       <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">
         {label}
       </div>
-      <div className={`mt-2 text-xl font-semibold ${tone}`}>{value}</div>
-      {sub ? <div className="mt-1 text-xs text-white/45">{sub}</div> : null}
+      <div className={`mt-1.5 text-lg font-semibold sm:mt-2 sm:text-xl ${tone}`}>{value}</div>
+      {sub ? <div className="mt-1 text-[11px] text-white/45 sm:text-xs">{sub}</div> : null}
     </div>
   );
 }
@@ -575,9 +575,9 @@ function BriefStat({
   tone?: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
+    <div className="rounded-xl border border-white/10 bg-black/20 px-2.5 py-2.5 sm:px-3 sm:py-3">
       <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">{label}</div>
-      <div className={`mt-2 text-base font-semibold ${tone}`}>{value}</div>
+      <div className={`mt-1.5 text-sm font-semibold sm:mt-2 sm:text-base ${tone}`}>{value}</div>
     </div>
   );
 }
@@ -610,24 +610,24 @@ function AccountPanel({
   totalPct?: number | null;
 }) {
   return (
-    <Surface className="p-4">
+    <Surface className="p-3 sm:p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] uppercase tracking-[0.2em] text-white/40">
             Account
           </div>
-          <div className="mt-2 text-3xl font-semibold text-white">{title}</div>
-          <div className="mt-1 text-sm text-white/55">{subtitle}</div>
+          <div className="mt-1.5 text-2xl font-semibold text-white sm:mt-2 sm:text-3xl">{title}</div>
+          <div className="mt-1 text-xs text-white/55 sm:text-sm">{subtitle}</div>
         </div>
 
         <div
-          className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.18em] ${badgeClass}`}
+          className={`rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.14em] sm:px-3 sm:text-[10px] sm:tracking-[0.18em] ${badgeClass}`}
         >
           {badge}
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2.5 xl:grid-cols-5">
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-2.5 xl:grid-cols-5">
         <SmallMetric label="Equity" value={money(equity)} />
         <SmallMetric
           label="Realized"

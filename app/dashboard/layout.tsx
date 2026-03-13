@@ -13,6 +13,14 @@ const NAV_ITEMS = [
   { href: "/dashboard/bot", label: "Bot" },
 ];
 
+const MOBILE_NAV_ITEMS = [
+  { href: "/dashboard", label: "Home" },
+  { href: "/dashboard/live", label: "Live" },
+  { href: "/dashboard/symbols", label: "Symbols" },
+  { href: "/dashboard/performance", label: "Perf" },
+  { href: "/dashboard/bot", label: "Bot" },
+];
+
 function isActive(pathname: string, href: string) {
   if (href === "/dashboard") return pathname === "/dashboard";
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -52,7 +60,7 @@ export default function DashboardLayout({
               </div>
             </div>
 
-            <nav className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:mx-0 xl:overflow-visible xl:px-0 xl:pb-0">
+            <nav className="hidden xl:flex xl:items-center xl:gap-1.5">
               {NAV_ITEMS.map((item) => {
                 const active = isActive(pathname, item.href);
 
@@ -61,7 +69,7 @@ export default function DashboardLayout({
                     key={item.href}
                     href={item.href}
                     className={[
-                      "shrink-0 rounded-xl px-3 py-2 text-xs font-medium transition sm:px-4 sm:text-sm",
+                      "shrink-0 rounded-xl px-4 py-2 text-sm font-medium transition",
                       active
                         ? "border border-emerald-400/20 bg-emerald-500/12 text-emerald-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                         : "border border-white/8 bg-white/[0.03] text-white/72 hover:border-white/10 hover:bg-white/[0.05] hover:text-white",
@@ -75,9 +83,32 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        <main className="mx-auto max-w-[1720px] px-4 py-4 sm:px-5 sm:py-5 xl:px-8 xl:py-8">
+        <main className="mx-auto max-w-[1720px] px-4 py-4 pb-24 sm:px-5 sm:py-5 sm:pb-24 xl:px-8 xl:py-8 xl:pb-8">
           {children}
         </main>
+
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#05080d]/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur-xl xl:hidden">
+          <div className="mx-auto grid max-w-[1720px] grid-cols-5 gap-2">
+            {MOBILE_NAV_ITEMS.map((item) => {
+              const active = isActive(pathname, item.href);
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={[
+                    "flex min-h-11 items-center justify-center rounded-xl px-2 text-[11px] font-medium transition",
+                    active
+                      ? "border border-emerald-400/20 bg-emerald-500/12 text-emerald-300"
+                      : "border border-white/8 bg-white/[0.03] text-white/68",
+                  ].join(" ")}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
       </div>
     </div>
   );
