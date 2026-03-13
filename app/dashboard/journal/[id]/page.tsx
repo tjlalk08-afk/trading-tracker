@@ -94,6 +94,7 @@ export default function JournalTradeDetailPage({
   const [error, setError] = useState("");
   const [shotUrl, setShotUrl] = useState("");
   const [shotCaption, setShotCaption] = useState("");
+  const [shotFile, setShotFile] = useState<File | null>(null);
   const [savingShot, setSavingShot] = useState(false);
   const [shotMessage, setShotMessage] = useState("");
   const [shotError, setShotError] = useState("");
@@ -201,24 +202,36 @@ export default function JournalTradeDetailPage({
 
   async function saveScreenshot(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!tradeId || !shotUrl.trim()) return;
+    if (!tradeId || (!shotUrl.trim() && !shotFile)) return;
 
     setSavingShot(true);
     setShotError("");
     setShotMessage("");
 
     try {
-      const response = await fetch(`/api/journal/${tradeId}`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          image_url: shotUrl.trim(),
-          caption: shotCaption.trim() || null,
-          shot_type: "chart",
-        }),
-      });
+      let response: Response;
+      if (shotFile) {
+        const form = new FormData();
+        form.append("file", shotFile);
+        form.append("caption", shotCaption.trim());
+        form.append("shot_type", "chart");
+        response = await fetch(`/api/journal/${tradeId}`, {
+          method: "POST",
+          body: form,
+        });
+      } else {
+        response = await fetch(`/api/journal/${tradeId}`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            image_url: shotUrl.trim(),
+            caption: shotCaption.trim() || null,
+            shot_type: "chart",
+          }),
+        });
+      }
 
       const json = (await response.json()) as {
         ok: boolean;
@@ -240,6 +253,7 @@ export default function JournalTradeDetailPage({
       );
       setShotUrl("");
       setShotCaption("");
+      setShotFile(null);
       setShotMessage("Screenshot attached to this trade.");
     } catch (err) {
       setShotError(err instanceof Error ? err.message : "Failed to save screenshot");
@@ -303,34 +317,96 @@ export default function JournalTradeDetailPage({
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
-                5 Minute Candle Chart
+                Actual Trade Screenshot
               </div>
-              <h2 className="mt-2 text-2xl font-semibold text-white">Trade replay window</h2>
+              <h2 className="mt-2 text-2xl font-semibold text-white">Primary chart evidence</h2>
             </div>
             <div className="text-sm text-white/45">
-              {formatDateTime(trade.opened_at)} {"->"} {formatDateTime(trade.closed_at)}
+              {screenshots.length ? `${screenshots.length} saved` : "No screenshot yet"}
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
-            Entry and exit are marked directly on the candle chart. This replay is now cropped much tighter
-            around the trade so the setup reads more like the actual move instead of a broad session chart.
-          </div>
-
-          <div className="mt-4">
-            <TradeCandleChart
-              candles={candles}
-              openedAt={trade.opened_at}
-              closedAt={trade.closed_at}
-              ema10={ema10}
+          <form onSubmit={saveScreenshot} className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="text-sm text-white/70">
+              Upload the actual chart image for this trade. This is the part that will make the journal look like what you actually saw.
+            </div>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => setShotFile(event.target.files?.[0] ?? null)}
+              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-500/15 file:px-3 file:py-2 file:text-cyan-300"
             />
-          </div>
-
-          {candleError ? (
-            <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-4 text-sm text-amber-100">
-              Candle data warning: {candleError}
+            <div className="text-xs text-white/45">
+              If you don&apos;t want to upload a file yet, you can still paste an image URL below.
             </div>
-          ) : null}
+            <input
+              value={shotUrl}
+              onChange={(event) => setShotUrl(event.target.value)}
+              placeholder="https://..."
+              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
+            />
+            <input
+              value={shotCaption}
+              onChange={(event) => setShotCaption(event.target.value)}
+              placeholder="Caption, setup note, or chart label"
+              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
+            />
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs text-white/45">
+                Use file upload first. The replay chart below is now just a backup tool.
+              </div>
+              <button
+                type="submit"
+                disabled={savingShot || (!shotUrl.trim() && !shotFile)}
+                className="rounded-xl border border-cyan-400/20 bg-cyan-500/12 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingShot ? "Saving..." : "Add Screenshot"}
+              </button>
+            </div>
+            {shotMessage ? (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-sm text-emerald-200">
+                {shotMessage}
+              </div>
+            ) : null}
+            {shotError ? (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-sm text-red-200">
+                {shotError}
+              </div>
+            ) : null}
+          </form>
+
+          {screenshots.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-10 text-white/55">
+              No actual chart screenshot saved yet. Once you upload one, this page becomes the real trade review page instead of relying on a reconstructed replay.
+            </div>
+          ) : (
+            <div className="mt-4 grid grid-cols-1 gap-4">
+              {screenshots.map((shot) => (
+                <div
+                  key={shot.id}
+                  className="overflow-hidden rounded-2xl border border-white/10 bg-black/20"
+                >
+                  {shot.image_url ? (
+                    <a href={shot.image_url} target="_blank" rel="noreferrer">
+                      <img
+                        src={shot.image_url}
+                        alt={shot.caption ?? shot.shot_type ?? "Trade screenshot"}
+                        className="max-h-[520px] w-full object-contain bg-black"
+                      />
+                    </a>
+                  ) : null}
+                  <div className="px-4 py-4 text-white/75">
+                    <div className="text-sm font-medium text-white">
+                      {shot.caption ?? shot.shot_type ?? "Screenshot"}
+                    </div>
+                    <div className="mt-2 break-all text-xs text-white/50">
+                      {shot.image_url ?? "-"}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="xl:col-span-4 rounded-[28px] border border-white/10 bg-black/30 p-5">
@@ -366,6 +442,40 @@ export default function JournalTradeDetailPage({
         </section>
       </div>
 
+      <section className="rounded-[28px] border border-white/10 bg-black/30 p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
+                5 Minute Candle Chart
+              </div>
+              <h2 className="mt-2 text-2xl font-semibold text-white">Secondary replay window</h2>
+            </div>
+            <div className="text-sm text-white/45">
+              {formatDateTime(trade.opened_at)} {"->"} {formatDateTime(trade.closed_at)}
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
+            This replay is still a reconstruction from imported trade data. Use it as a secondary reference,
+            not the source of truth. The screenshot section above is where the trade should actually be reviewed.
+          </div>
+
+          <div className="mt-4">
+            <TradeCandleChart
+              candles={candles}
+              openedAt={trade.opened_at}
+              closedAt={trade.closed_at}
+              ema10={ema10}
+            />
+          </div>
+
+          {candleError ? (
+            <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-4 text-sm text-amber-100">
+              Candle data warning: {candleError}
+            </div>
+          ) : null}
+      </section>
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section className="rounded-[28px] border border-white/10 bg-black/30 p-5">
           <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
@@ -393,51 +503,11 @@ export default function JournalTradeDetailPage({
 
         <section className="rounded-[28px] border border-white/10 bg-black/30 p-5">
           <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
-            Screenshots
+            Screenshot Links
           </div>
-          <form onSubmit={saveScreenshot} className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
-            <div className="text-sm text-white/70">
-              Add the actual chart image URL for this trade so the journal shows exactly what you were looking at.
-            </div>
-            <input
-              value={shotUrl}
-              onChange={(event) => setShotUrl(event.target.value)}
-              placeholder="https://..."
-              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
-            />
-            <input
-              value={shotCaption}
-              onChange={(event) => setShotCaption(event.target.value)}
-              placeholder="Caption, setup note, or chart label"
-              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
-            />
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-xs text-white/45">
-                Tip: use your broker, TradingView, or image host link here.
-              </div>
-              <button
-                type="submit"
-                disabled={savingShot || !shotUrl.trim()}
-                className="rounded-xl border border-cyan-400/20 bg-cyan-500/12 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {savingShot ? "Saving..." : "Add Screenshot"}
-              </button>
-            </div>
-            {shotMessage ? (
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-sm text-emerald-200">
-                {shotMessage}
-              </div>
-            ) : null}
-            {shotError ? (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-sm text-red-200">
-                {shotError}
-              </div>
-            ) : null}
-          </form>
           {screenshots.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-6 text-white/55">
-              No screenshots saved yet. Once you attach the actual chart image here, this page becomes much
-              closer to a true trade review instead of only a reconstructed replay.
+              No screenshots saved yet.
             </div>
           ) : (
             <div className="mt-4 grid grid-cols-1 gap-4">

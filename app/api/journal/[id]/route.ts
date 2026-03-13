@@ -9,6 +9,9 @@ import type {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const SCREENSHOT_BUCKET =
+  process.env.TRADE_JOURNAL_SCREENSHOT_BUCKET?.trim() || "trade-journal";
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
@@ -91,15 +94,65 @@ export async function POST(
   try {
     const { id } = await context.params;
     const admin = getSupabaseAdmin();
-    const body = (await request.json()) as {
-      image_url?: unknown;
-      caption?: unknown;
-      shot_type?: unknown;
-    };
+    const contentType = request.headers.get("content-type") ?? "";
+    let imageUrl = "";
+    let caption = "";
+    let shotType = "chart";
 
-    const imageUrl = typeof body.image_url === "string" ? body.image_url.trim() : "";
-    const caption = typeof body.caption === "string" ? body.caption.trim() : "";
-    const shotType = typeof body.shot_type === "string" ? body.shot_type.trim() : "chart";
+    if (contentType.includes("multipart/form-data")) {
+      const form = await request.formData();
+      const file = form.get("file");
+      caption = typeof form.get("caption") === "string" ? String(form.get("caption")).trim() : "";
+      shotType = typeof form.get("shot_type") === "string" ? String(form.get("shot_type")).trim() : "chart";
+
+      if (!(file instanceof File)) {
+        return NextResponse.json(
+          { ok: false, error: "Screenshot file is required" },
+          { status: 400 },
+        );
+      }
+
+      if (!file.type.startsWith("image/")) {
+        return NextResponse.json(
+          { ok: false, error: "Only image uploads are supported" },
+          { status: 400 },
+        );
+      }
+
+      const extension = file.name.includes(".")
+        ? file.name.split(".").pop()?.toLowerCase() || "png"
+        : "png";
+      const safeExtension = extension.replace(/[^a-z0-9]/g, "") || "png";
+      const path = `${id}/${Date.now()}-${crypto.randomUUID()}.${safeExtension}`;
+      const uploadResult = await admin.storage
+        .from(SCREENSHOT_BUCKET)
+        .upload(path, file, {
+          contentType: file.type,
+          upsert: false,
+        });
+
+      if (uploadResult.error) {
+        return NextResponse.json(
+          { ok: false, error: `Failed to upload screenshot: ${uploadResult.error.message}` },
+          { status: 500 },
+        );
+      }
+
+      const {
+        data: { publicUrl },
+      } = admin.storage.from(SCREENSHOT_BUCKET).getPublicUrl(path);
+      imageUrl = publicUrl;
+    } else {
+      const body = (await request.json()) as {
+        image_url?: unknown;
+        caption?: unknown;
+        shot_type?: unknown;
+      };
+
+      imageUrl = typeof body.image_url === "string" ? body.image_url.trim() : "";
+      caption = typeof body.caption === "string" ? body.caption.trim() : "";
+      shotType = typeof body.shot_type === "string" ? body.shot_type.trim() : "chart";
+    }
 
     if (!imageUrl) {
       return NextResponse.json(
