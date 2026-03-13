@@ -21,6 +21,14 @@ type JournalPayload = {
   error?: string;
 };
 
+type ImportPayload = {
+  ok: boolean;
+  imported?: number;
+  skipped?: number;
+  message?: string;
+  error?: string;
+};
+
 function formatDate(value: string | null) {
   if (!value) return "-";
   const date = new Date(value);
@@ -66,6 +74,8 @@ export default function JournalPage() {
   const [account, setAccount] = useState<AccountKey>("all");
   const [payload, setPayload] = useState<JournalPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -114,6 +124,43 @@ export default function JournalPage() {
     return [...rows].sort((a, b) => toNumber(b.net_pl) - toNumber(a.net_pl))[0];
   }, [rows]);
 
+  async function importTradeHistory() {
+    try {
+      setImporting(true);
+      setImportMessage("");
+      setError("");
+
+      const res = await fetch("/api/journal/import", {
+        method: "POST",
+        cache: "no-store",
+      });
+
+      const json: ImportPayload = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || "Failed to import trade history");
+      }
+
+      setImportMessage(
+        json.message ||
+          `Imported ${json.imported ?? 0} trade${json.imported === 1 ? "" : "s"} into the journal.`,
+      );
+
+      const refreshRes = await fetch(`/api/journal?range=${range}&account=${account}`, {
+        cache: "no-store",
+      });
+      const refreshJson: JournalPayload = await refreshRes.json();
+      if (!refreshRes.ok || !refreshJson.ok) {
+        throw new Error(refreshJson.error || "Imported trades but failed to refresh the journal");
+      }
+
+      setPayload(refreshJson);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to import trade history");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <section className="rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-6 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
@@ -133,6 +180,14 @@ export default function JournalPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => void importTradeHistory()}
+              disabled={importing}
+              className="rounded-2xl border border-emerald-400/20 bg-emerald-500/12 px-4 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/18 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {importing ? "Importing..." : "Import Existing Trades"}
+            </button>
+
             <div className="rounded-2xl border border-white/10 bg-black/30 p-1">
               {(["7d", "30d", "90d", "1y"] as RangeKey[]).map((value) => (
                 <button
@@ -171,6 +226,12 @@ export default function JournalPage() {
       {error ? (
         <div className="rounded-3xl border border-red-500/20 bg-red-500/8 p-5 text-red-200">
           {error}
+        </div>
+      ) : null}
+
+      {importMessage ? (
+        <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/8 p-5 text-emerald-200">
+          {importMessage}
         </div>
       ) : null}
 
@@ -220,7 +281,7 @@ export default function JournalPage() {
         ) : rows.length === 0 ? (
           <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-6 text-white/60">
             No journal trades found yet. Apply the Supabase migration, then either import your existing
-            `trade_history` into `trade_journal_trades` or start logging manual trade reviews.
+            `trade_history` into `trade_journal_trades` with the button above, or start logging manual trade reviews.
           </div>
         ) : (
           <div className="mt-5 overflow-x-auto">
