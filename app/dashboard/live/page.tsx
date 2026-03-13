@@ -229,8 +229,8 @@ function StatCard({
       <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
         {title}
       </div>
-      <div className={`mt-3 text-3xl font-semibold ${tone}`}>{value}</div>
-      {sub ? <div className="mt-3 text-sm text-white/50">{sub}</div> : null}
+      <div className={`mt-2 text-2xl font-semibold sm:text-3xl ${tone}`}>{value}</div>
+      {sub ? <div className="mt-2 text-xs text-white/50 sm:text-sm">{sub}</div> : null}
     </div>
   );
 }
@@ -245,11 +245,11 @@ function CompactMetric({
   tone?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
       <div className="text-[10px] uppercase tracking-[0.18em] text-white/45">
         {title}
       </div>
-      <div className={`mt-1.5 text-lg font-semibold xl:text-xl ${tone}`}>
+      <div className={`mt-1 text-base font-semibold sm:text-lg xl:text-xl ${tone}`}>
         {value}
       </div>
     </div>
@@ -268,10 +268,10 @@ function SectionShell({
   children: ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-      <div className="flex flex-col gap-3 border-b border-white/10 px-5 py-4 md:flex-row md:items-center md:justify-between">
+    <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:rounded-[28px]">
+      <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-3 md:flex-row md:items-center md:justify-between sm:px-5 sm:py-4">
         <div>
-          <h2 className="text-2xl font-semibold text-white">{title}</h2>
+          <h2 className="text-xl font-semibold text-white sm:text-2xl">{title}</h2>
           {subtitle ? (
             <p className="mt-1 text-sm text-white/45">{subtitle}</p>
           ) : null}
@@ -280,7 +280,7 @@ function SectionShell({
           <div className="flex flex-wrap items-center gap-2">{right}</div>
         ) : null}
       </div>
-      <div className="px-5 py-4">{children}</div>
+      <div className="px-4 py-3 sm:px-5 sm:py-4">{children}</div>
     </div>
   );
 }
@@ -296,16 +296,16 @@ function TradeCard({
   const symbol = row.display_symbol ?? row.symbol ?? "—";
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:rounded-2xl sm:p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-semibold text-white">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sm font-semibold text-white sm:h-11 sm:w-11 sm:rounded-2xl">
             {symbol.slice(0, 2).toUpperCase()}
           </div>
 
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="text-lg font-semibold text-white">{symbol}</div>
+              <div className="text-base font-semibold text-white sm:text-lg">{symbol}</div>
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/65">
                 {row.side ?? "—"}
               </span>
@@ -327,13 +327,13 @@ function TradeCard({
           <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">
             Realized
           </div>
-          <div className={`mt-1 text-xl font-semibold ${perfTone(realized)}`}>
+          <div className={`mt-1 text-lg font-semibold sm:text-xl ${perfTone(realized)}`}>
             {signedMoney(realized)}
           </div>
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-2.5 md:grid-cols-4">
         <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
           <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">
             Entry
@@ -480,9 +480,9 @@ export default function LivePage() {
           />
         </div>
 
-        <div className="relative mx-auto w-full max-w-7xl px-6 pb-12 pt-8">
-          <section className="rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur-sm">
-            <div className="border-b border-white/10 px-6 py-6 md:px-8">
+        <div className="relative mx-auto w-full max-w-7xl px-4 pb-8 pt-4 sm:px-5 sm:pb-10 sm:pt-6 md:px-6 md:pt-8">
+          <section className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:rounded-[30px]">
+            <div className="border-b border-white/10 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                 <div className="max-w-2xl">
                   <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-emerald-300">
@@ -490,7 +490,7 @@ export default function LivePage() {
                     Live Monitor
                   </div>
 
-                  <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
+                  <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">
                     Live
                   </h1>
 
@@ -499,7 +499,7 @@ export default function LivePage() {
                     open, including current positions and recently closed trades.
                   </p>
 
-                  <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-white/45">
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-white/45 sm:mt-5 sm:gap-3 sm:text-xs">
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
                       Polling every 1 second
                     </span>
@@ -515,7 +515,7 @@ export default function LivePage() {
               </div>
             </div>
 
-            <div className="px-6 py-6 md:px-8">
+            <div className="px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
               {error ? (
                 <div className="mb-6 rounded-3xl border border-red-500/20 bg-red-500/8 p-6 text-center">
                   <div className="text-sm font-medium uppercase tracking-[0.2em] text-red-300">
@@ -525,7 +525,7 @@ export default function LivePage() {
                 </div>
               ) : null}
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-5">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-5">
                 <StatCard title="Cash" value={money(data?.cash)} />
                 <StatCard title="Equity" value={money(data?.equity)} />
                 <StatCard
@@ -545,7 +545,7 @@ export default function LivePage() {
                 />
               </div>
 
-              <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="mt-4 grid grid-cols-1 gap-3 xl:mt-6 xl:gap-4 xl:grid-cols-2">
                 <SectionShell
                   title="Live Account"
                   subtitle="Current live account metrics."
@@ -613,7 +613,7 @@ export default function LivePage() {
                 </SectionShell>
               </div>
 
-              <div className="mt-6">
+              <div className="mt-4 sm:mt-6">
                 <SectionShell
                   title="Open Positions"
                   subtitle="Currently open positions from the live feed."
@@ -717,7 +717,7 @@ export default function LivePage() {
                 </SectionShell>
               </div>
 
-              <div className="mt-6 space-y-4">
+              <div className="mt-4 space-y-3 sm:mt-6 sm:space-y-4">
                 <SectionShell
                   title="Completed Live Trades"
                   subtitle="Recently closed live trades from the bot feed."

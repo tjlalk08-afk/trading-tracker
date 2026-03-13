@@ -131,18 +131,18 @@ function StatCard({
   badge?: string;
 }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:rounded-3xl sm:p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
             {title}
           </div>
-          <div className={`mt-3 text-3xl font-semibold ${tone}`}>{value}</div>
+          <div className={`mt-2 text-2xl font-semibold sm:text-3xl ${tone}`}>{value}</div>
         </div>
 
         {badge ? (
           <div
-            className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+            className={`rounded-full border px-2 py-1 text-[10px] font-medium sm:px-2.5 sm:text-[11px] ${
               tone === "text-emerald-400"
                 ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
                 : tone === "text-red-400"
@@ -156,7 +156,7 @@ function StatCard({
       </div>
 
       {(subLeft || subRight) && (
-        <div className="mt-5 flex items-center justify-between gap-3 text-sm text-white/50">
+        <div className="mt-4 flex items-center justify-between gap-3 text-xs text-white/50 sm:mt-5 sm:text-sm">
           <span>{subLeft ?? ""}</span>
           <span>{subRight ?? ""}</span>
         </div>
@@ -331,9 +331,9 @@ export default function PerformancePage() {
           />
         </div>
 
-        <div className="relative mx-auto w-full max-w-7xl px-6 pb-12 pt-8">
-          <section className="rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur-sm">
-            <div className="border-b border-white/10 px-6 py-6 md:px-8">
+        <div className="relative mx-auto w-full max-w-7xl px-4 pb-8 pt-4 sm:px-5 sm:pb-10 sm:pt-6 md:px-6 md:pt-8">
+          <section className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:rounded-[30px]">
+            <div className="border-b border-white/10 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
               <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                 <div className="max-w-2xl">
                   <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-emerald-300">
@@ -341,7 +341,7 @@ export default function PerformancePage() {
                     Snapshot Performance
                   </div>
 
-                  <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
+                  <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">
                     Performance
                   </h1>
 
@@ -351,7 +351,7 @@ export default function PerformancePage() {
                     as a secondary overlay when movement exists.
                   </p>
 
-                  <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-white/45">
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-white/45 sm:mt-5 sm:gap-3 sm:text-xs">
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
                       {timeframe} window
                     </span>
@@ -372,7 +372,7 @@ export default function PerformancePage() {
                         <button
                           key={tf}
                           onClick={() => setTimeframe(tf)}
-                          className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+                          className={`rounded-xl px-3 py-2 text-xs font-medium transition sm:px-4 sm:py-2.5 sm:text-sm ${
                             active
                               ? "bg-emerald-400 text-black shadow-[0_0_24px_rgba(52,211,153,0.25)]"
                               : "text-white/70 hover:bg-white/8 hover:text-white"
@@ -427,8 +427,8 @@ export default function PerformancePage() {
                 </div>
               </div>
             ) : (
-              <div className="px-6 py-6 md:px-8">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-5">
+                <div className="px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-5">
                   <StatCard
                     title="Days Tracked"
                     value={String(summary.daysTracked)}
@@ -489,10 +489,10 @@ export default function PerformancePage() {
                   />
                 </div>
 
-                <div className="mt-6 overflow-hidden rounded-[28px] border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                  <div className="flex flex-col gap-4 border-b border-white/10 px-5 py-4 md:flex-row md:items-center md:justify-between">
+                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:mt-6 sm:rounded-[28px]">
+                  <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-3 md:flex-row md:items-center md:justify-between sm:px-5 sm:py-4">
                     <div>
-                      <h2 className="text-2xl font-semibold text-white">
+                      <h2 className="text-xl font-semibold text-white sm:text-2xl">
                         Live Equity Trend
                         <span className="text-white/45"> + Test Daily P/L</span>
                       </h2>
@@ -515,7 +515,7 @@ export default function PerformancePage() {
                     </div>
                   </div>
 
-                  <div className="px-5 py-4">
+                  <div className="px-4 py-3 sm:px-5 sm:py-4">
                     {infoMessages.length > 0 ? (
                       <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/60">
                         {infoMessages.join(" ")}
@@ -544,7 +544,7 @@ export default function PerformancePage() {
                       </div>
                     </div>
 
-                    <div className="h-[420px]">
+                    <div className="h-[320px] sm:h-[420px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData}>
                           <CartesianGrid
@@ -643,7 +643,7 @@ export default function PerformancePage() {
                   </div>
                 </div>
 
-                <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div className="mt-4 grid grid-cols-1 gap-3 xl:mt-6 xl:gap-4 xl:grid-cols-2">
                   <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                     <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
                       Latest Totals

@@ -1036,7 +1036,7 @@ export default function DashboardHome() {
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <div className="mt-1 flex flex-wrap items-center gap-3">
-            <h1 className="text-4xl font-semibold tracking-tight text-white">Overview</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Overview</h1>
 
             <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/65">
               Saved Snapshot
@@ -1054,29 +1054,29 @@ export default function DashboardHome() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/70">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs text-white/70 sm:px-4 sm:text-sm">
             Last saved: <span className="font-medium text-white">{snapshotAge}</span>
           </div>
 
           <button
             onClick={() => void refreshSnapshot()}
             disabled={refreshing}
-            className="rounded-xl border border-emerald-400/20 bg-emerald-500/12 px-4 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/18 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl border border-emerald-400/20 bg-emerald-500/12 px-3 py-2 text-xs font-medium text-emerald-300 transition hover:bg-emerald-500/18 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-sm"
           >
             {refreshing ? "Refreshing..." : "Reload Snapshot"}
           </button>
 
           <Link
             href="/dashboard/live"
-            className="rounded-xl border border-cyan-400/20 bg-cyan-500/12 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/18"
+            className="rounded-xl border border-cyan-400/20 bg-cyan-500/12 px-3 py-2 text-xs font-medium text-cyan-300 transition hover:bg-cyan-500/18 sm:px-4 sm:text-sm"
           >
             Live
           </Link>
 
           <Link
             href="/dashboard/performance"
-            className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/80 transition hover:bg-white/[0.08]"
+            className="rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs text-white/80 transition hover:bg-white/[0.08] sm:px-4 sm:text-sm"
           >
             Performance
           </Link>
@@ -1102,7 +1102,7 @@ export default function DashboardHome() {
         </Surface>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-2.5 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
             <DenseBucketCard
               title="This Week"
               delta={weekStats.delta}
@@ -1150,7 +1150,7 @@ export default function DashboardHome() {
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
                       <SectionLabel>System Status</SectionLabel>
-                      <div className="mt-1 text-[2.05rem] font-semibold text-white">
+                      <div className="mt-1 text-2xl font-semibold text-white sm:text-[2.05rem]">
                         Runtime Health
                       </div>
                       <div className="mt-1 text-sm text-white/55">
@@ -1194,7 +1194,7 @@ export default function DashboardHome() {
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
                       <SectionLabel>Performance</SectionLabel>
-                      <div className="mt-1 text-[2.05rem] font-semibold text-white">
+                      <div className="mt-1 text-2xl font-semibold text-white sm:text-[2.05rem]">
                         Account Balance
                       </div>
                       <div className="mt-1 text-sm text-white/55">
@@ -1218,7 +1218,7 @@ export default function DashboardHome() {
                     </div>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-6">
+                    <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-6">
                     <ChartStat label="Current" value={money(chartSummary.latest)} />
                     <ChartStat
                       label="Trend"
@@ -1281,7 +1281,7 @@ export default function DashboardHome() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <SectionLabel>Summary</SectionLabel>
-                    <div className="mt-1 text-[2.05rem] font-semibold text-white">
+                    <div className="mt-1 text-2xl font-semibold text-white sm:text-[2.05rem]">
                       Snapshot Brief
                     </div>
                     <div className="mt-1 text-sm text-white/55">
@@ -1296,7 +1296,7 @@ export default function DashboardHome() {
                   </div>
                 </div>
 
-                <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <BriefStat label="Status" value={freshness.label} tone={pnlTextClass(0)} />
                   <BriefStat
                     label="Leader"
