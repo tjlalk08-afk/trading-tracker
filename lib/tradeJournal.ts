@@ -23,6 +23,54 @@ export type TradeJournalOverviewRow = {
   latest_note: string | null;
 };
 
+export type TradeJournalDetailRow = {
+  id: string;
+  source: string | null;
+  source_trade_id: string | null;
+  account: string | null;
+  trade_group_key: string | null;
+  symbol: string | null;
+  display_symbol: string | null;
+  asset_type: string | null;
+  strategy: string | null;
+  side: string | null;
+  opened_at: string | null;
+  closed_at: string | null;
+  entry_price: number | string | null;
+  exit_price: number | string | null;
+  quantity: number | string | null;
+  gross_pl: number | string | null;
+  fees: number | string | null;
+  net_pl: number | string | null;
+  return_pct: number | string | null;
+  duration_minutes: number | null;
+  status: string | null;
+  conviction_score: number | null;
+  execution_score: number | null;
+  rules_followed: boolean | null;
+  imported_from_trade_history: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type TradeJournalNoteRow = {
+  id: string;
+  note_type: string | null;
+  title: string | null;
+  body: string | null;
+  mood: string | null;
+  lesson: string | null;
+  created_at: string | null;
+};
+
+export type TradeJournalScreenshotRow = {
+  id: string;
+  image_url: string | null;
+  caption: string | null;
+  shot_type: string | null;
+  created_at: string | null;
+};
+
 export type TradeJournalSummary = {
   trades: number;
   winners: number;

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   formatMoney,
@@ -300,20 +301,46 @@ export default function JournalPage() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-white/6">
-                    <td className="px-3 py-3 text-white/70">{formatDate(row.closed_at)}</td>
+                  <tr key={row.id} className="border-b border-white/6 transition hover:bg-white/[0.03]">
+                    <td className="px-3 py-3 text-white/70">
+                      <Link href={`/dashboard/journal/${row.id}`} className="block">
+                        {formatDate(row.closed_at)}
+                      </Link>
+                    </td>
                     <td className="px-3 py-3 font-medium text-white">
-                      {row.display_symbol ?? row.symbol ?? "-"}
+                      <Link href={`/dashboard/journal/${row.id}`} className="block">
+                        {row.display_symbol ?? row.symbol ?? "-"}
+                      </Link>
                     </td>
-                    <td className="px-3 py-3 uppercase text-white/65">{row.account ?? "-"}</td>
-                    <td className="px-3 py-3 text-white/65">{row.setup_name ?? row.strategy ?? "-"}</td>
+                    <td className="px-3 py-3 uppercase text-white/65">
+                      <Link href={`/dashboard/journal/${row.id}`} className="block">
+                        {row.account ?? "-"}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-3 text-white/65">
+                      <Link href={`/dashboard/journal/${row.id}`} className="block">
+                        {row.setup_name ?? row.strategy ?? "-"}
+                      </Link>
+                    </td>
                     <td className={`px-3 py-3 font-medium ${tone(toNumber(row.net_pl))}`}>
-                      {formatMoney(row.net_pl)}
+                      <Link href={`/dashboard/journal/${row.id}`} className="block">
+                        {formatMoney(row.net_pl)}
+                      </Link>
                     </td>
-                    <td className="px-3 py-3 text-white/65">{formatPercent(row.return_pct ?? 0)}</td>
-                    <td className="px-3 py-3 text-white/55">{row.tags || "-"}</td>
+                    <td className="px-3 py-3 text-white/65">
+                      <Link href={`/dashboard/journal/${row.id}`} className="block">
+                        {formatPercent(row.return_pct ?? 0)}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-3 text-white/55">
+                      <Link href={`/dashboard/journal/${row.id}`} className="block">
+                        {row.tags || "-"}
+                      </Link>
+                    </td>
                     <td className="max-w-[360px] px-3 py-3 text-white/55">
-                      {row.latest_note || "No note yet"}
+                      <Link href={`/dashboard/journal/${row.id}`} className="block">
+                        {row.latest_note || "No note yet"}
+                      </Link>
                     </td>
                   </tr>
                 ))}
