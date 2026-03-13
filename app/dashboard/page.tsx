@@ -1163,7 +1163,7 @@ export default function DashboardHome() {
                     </div>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-3">
                     {[
                       { label: "Config", check: health?.checks?.config },
                       { label: "Bot Upstream", check: health?.checks?.bot },
@@ -1253,7 +1253,7 @@ export default function DashboardHome() {
                   </div>
                 </Surface>
 
-                <div className="grid grid-cols-1 gap-2.5 xl:grid-cols-3">
+                <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
                   <TopCard
                     title="Today's Realized"
                     value={deltaHeadline(latest.realized_pl, "Flat")}
@@ -1330,12 +1330,12 @@ export default function DashboardHome() {
 
                 <div className="mt-3 border-t border-white/10 pt-3">
                   <SectionLabel>Snapshot History</SectionLabel>
-                  <div className="mt-2.5 space-y-2">
+                  <div className="mt-2.5 grid grid-cols-2 gap-2">
                     {recentSaves.length ? (
                       recentSaves.map((row) => (
                         <div
                           key={row.id}
-                          className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2.5"
+                          className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5"
                         >
                           <div>
                             <div className="text-sm font-medium text-white">
@@ -1345,7 +1345,7 @@ export default function DashboardHome() {
                               {timeAgo(row.snapshot_ts)}
                             </div>
                           </div>
-                          <div className="text-sm font-medium text-white">
+                          <div className="mt-2 text-sm font-medium text-white">
                             {compactMoney(row.equity)}
                           </div>
                         </div>

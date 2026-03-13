@@ -545,7 +545,7 @@ export default function LivePage() {
                 />
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-3 xl:mt-6 xl:gap-4 xl:grid-cols-2">
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:mt-6 xl:gap-4">
                 <SectionShell
                   title="Live Account"
                   subtitle="Current live account metrics."
@@ -555,7 +555,7 @@ export default function LivePage() {
                     </span>
                   }
                 >
-                  <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                     <CompactMetric title="Cash" value={money(data?.live_cash)} />
                     <CompactMetric
                       title="Equity"
@@ -588,7 +588,7 @@ export default function LivePage() {
                     </span>
                   }
                 >
-                  <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                     <CompactMetric title="Cash" value={money(data?.test_cash)} />
                     <CompactMetric
                       title="Equity"
@@ -628,7 +628,7 @@ export default function LivePage() {
                       No open positions right now.
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                       {positions.map((row, idx) => {
                         const openPl = toNumber(row.open_pnl ?? row.open_pl);
                         const openPct = toNumber(
@@ -690,7 +690,7 @@ export default function LivePage() {
                               </div>
                             </div>
 
-                            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+                            <div className="mt-3 grid grid-cols-2 gap-2.5">
                               <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
                                 <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">
                                   Entry
@@ -732,7 +732,7 @@ export default function LivePage() {
                       No completed live trades yet.
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                       {closedLive.map((row, idx) => (
                         <TradeCard
                           key={
@@ -761,7 +761,7 @@ export default function LivePage() {
                       No completed test trades yet.
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                       {closedTest.map((row, idx) => (
                         <TradeCard
                           key={

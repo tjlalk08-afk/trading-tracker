@@ -428,7 +428,7 @@ export default function PerformancePage() {
               </div>
             ) : (
                 <div className="px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-5">
+                <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3 2xl:grid-cols-5">
                   <StatCard
                     title="Days Tracked"
                     value={String(summary.daysTracked)}
@@ -502,7 +502,7 @@ export default function PerformancePage() {
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-white/45">
+                    <div className="grid grid-cols-2 gap-2 text-xs text-white/45 sm:flex sm:flex-wrap sm:items-center">
                       <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
                         Range: {firstTs} → {lastTs}
                       </span>
@@ -643,12 +643,12 @@ export default function PerformancePage() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 xl:mt-6 xl:gap-4 xl:grid-cols-2">
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:mt-6 xl:gap-4">
                   <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                     <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
                       Latest Totals
                     </div>
-                    <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="mt-4 grid grid-cols-2 gap-3">
                       <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                         <div className="text-xs uppercase tracking-[0.18em] text-white/45">
                           Live Total P/L
