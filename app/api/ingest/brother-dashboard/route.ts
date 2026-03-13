@@ -42,6 +42,9 @@ type InsertedSnapshotRow = {
   snapshot_ts: string | null;
 };
 
+const BOT_SOURCE_TIMEZONE =
+  process.env.BROTHER_BOT_SOURCE_TIMEZONE?.trim() || "America/New_York";
+
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -75,14 +78,27 @@ function normalizeTimestamp(value: unknown): string | null {
   const raw = toStringValue(value);
   if (!raw) return null;
 
-  // Handles values like "2026-03-10 08:35:46"
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) {
-    return raw.replace(" ", "T");
+  // Handles ISO values that already include timezone information.
+  if (/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(raw)) {
+    return raw;
   }
 
-  // Handles ISO-ish values directly
-  if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
-    return raw;
+  const localMatch = raw.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[ T])(\d{2}):(\d{2})(?::(\d{2}))?$/,
+  );
+  if (localMatch) {
+    const [, year, month, day, hour, minute, second = "00"] = localMatch;
+    return localTimeToUtcIso(
+      {
+        year: Number(year),
+        month: Number(month),
+        day: Number(day),
+        hour: Number(hour),
+        minute: Number(minute),
+        second: Number(second),
+      },
+      BOT_SOURCE_TIMEZONE,
+    );
   }
 
   const parsed = new Date(raw);
@@ -336,6 +352,60 @@ async function handleIngest() {
     completed_trades_upserted: upsertedTrades,
     data: savedSnapshot,
   });
+}
+
+function getTimeZoneOffsetMs(utcGuessMs: number, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(utcGuessMs));
+
+  const map = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+
+  const asUtc = Date.UTC(
+    Number(map.year),
+    Number(map.month) - 1,
+    Number(map.day),
+    Number(map.hour),
+    Number(map.minute),
+    Number(map.second),
+  );
+
+  return asUtc - utcGuessMs;
+}
+
+function localTimeToUtcIso(
+  parts: {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+    second: number;
+  },
+  timeZone: string,
+) {
+  const utcGuess = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  );
+
+  const offsetMs = getTimeZoneOffsetMs(utcGuess, timeZone);
+  return new Date(utcGuess - offsetMs).toISOString();
 }
 
 export async function GET() {

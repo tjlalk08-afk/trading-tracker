@@ -30,6 +30,8 @@ type ImportPayload = {
   error?: string;
 };
 
+const DISPLAY_TIMEZONE = "America/Chicago";
+
 function formatDate(value: string | null) {
   if (!value) return "-";
   const date = new Date(value);
@@ -39,6 +41,8 @@ function formatDate(value: string | null) {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: DISPLAY_TIMEZONE,
+    timeZoneName: "short",
   });
 }
 

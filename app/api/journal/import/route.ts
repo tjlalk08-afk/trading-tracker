@@ -21,6 +21,10 @@ type TradeHistoryRow = {
   external_trade_id: string | null;
 };
 
+const BOT_SOURCE_TIMEZONE =
+  process.env.BROTHER_BOT_SOURCE_TIMEZONE?.trim() || "America/New_York";
+const DISPLAY_TIMEZONE = "America/Chicago";
+
 function toNumber(value: unknown) {
   if (value === null || value === undefined || value === "") return 0;
   const parsed = Number(value);
@@ -32,6 +36,12 @@ function normalizeSymbol(value: string | null) {
   return value.replace(/_TEST$/i, "");
 }
 
+function normalizeOptionChartSymbol(value: string | null) {
+  if (!value) return null;
+  const compact = value.replace(/\s+/g, "").trim();
+  return compact || null;
+}
+
 function accountFromSource(source: string | null) {
   return source?.toLowerCase().includes("test") ? "test" : "live";
 }
@@ -41,13 +51,92 @@ function displaySymbolFromRow(row: TradeHistoryRow) {
 }
 
 function chartSymbolFromRow(row: TradeHistoryRow) {
-  return normalizeSymbol(row.symbol);
+  return normalizeOptionChartSymbol(row.option_symbol) ?? normalizeSymbol(row.symbol);
+}
+
+function chicagoHourFromIso(value: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: DISPLAY_TIMEZONE,
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const hour = parts.find((part) => part.type === "hour")?.value;
+  return hour ? Number(hour) : null;
+}
+
+function getTimeZoneOffsetMs(utcGuessMs: number, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(utcGuessMs));
+
+  const map = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+
+  const asUtc = Date.UTC(
+    Number(map.year),
+    Number(map.month) - 1,
+    Number(map.day),
+    Number(map.hour),
+    Number(map.minute),
+    Number(map.second),
+  );
+
+  return asUtc - utcGuessMs;
+}
+
+function reinterpretUtcClockAsTimezone(value: string | null, timeZone: string) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const utcGuess = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    date.getUTCHours(),
+    date.getUTCMinutes(),
+    date.getUTCSeconds(),
+  );
+
+  const offsetMs = getTimeZoneOffsetMs(utcGuess, timeZone);
+  return new Date(utcGuess - offsetMs).toISOString();
+}
+
+function fixLegacyBrotherTimestamp(value: string | null, source: string | null) {
+  if (!value || !source?.startsWith("brother_")) return value;
+  const localHour = chicagoHourFromIso(value);
+
+  // Legacy brother trades were stored with local bot clock values interpreted as UTC.
+  // If a closed trade lands deep premarket in Chicago, reinterpret that wall clock
+  // in the configured bot timezone so journal replay uses the intended trade time.
+  if (localHour !== null && localHour < 7) {
+    return reinterpretUtcClockAsTimezone(value, BOT_SOURCE_TIMEZONE);
+  }
+
+  return value;
 }
 
 function durationMinutes(row: TradeHistoryRow) {
-  if (!row.opened_at || !row.closed_at) return null;
-  const opened = new Date(row.opened_at).getTime();
-  const closed = new Date(row.closed_at).getTime();
+  const openedAt = fixLegacyBrotherTimestamp(row.opened_at, row.source);
+  const closedAt = fixLegacyBrotherTimestamp(row.closed_at, row.source);
+  if (!openedAt || !closedAt) return null;
+  const opened = new Date(openedAt).getTime();
+  const closed = new Date(closedAt).getTime();
   if (!Number.isFinite(opened) || !Number.isFinite(closed) || closed < opened) {
     return null;
   }
@@ -109,7 +198,11 @@ export async function POST() {
 
     const importRows = rows
       .filter((row) => row.closed_at && row.symbol)
-      .map((row) => ({
+      .map((row) => {
+        const openedAt = fixLegacyBrotherTimestamp(row.opened_at, row.source);
+        const closedAt = fixLegacyBrotherTimestamp(row.closed_at, row.source);
+
+        return {
         source: "trade_history_import",
         source_trade_id:
           row.external_trade_id?.trim() ||
@@ -124,8 +217,8 @@ export async function POST() {
         asset_type: "option",
         strategy: row.source,
         side: row.side,
-        opened_at: row.opened_at,
-        closed_at: row.closed_at,
+        opened_at: openedAt,
+        closed_at: closedAt,
         entry_price: toNumber(row.entry_price),
         exit_price: toNumber(row.exit_price),
         quantity: toNumber(row.qty),
@@ -135,7 +228,8 @@ export async function POST() {
         duration_minutes: durationMinutes(row),
         status: "closed",
         imported_from_trade_history: true,
-      }));
+      };
+      });
 
     const { error: upsertError } = await admin
       .from("trade_journal_trades")

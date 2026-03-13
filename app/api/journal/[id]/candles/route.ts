@@ -30,9 +30,11 @@ type YahooChartResponse = {
 };
 
 function normalizeChartSymbol(
-  trade: Pick<TradeJournalDetailRow, "chart_symbol" | "display_symbol" | "symbol">,
+  trade: Pick<TradeJournalDetailRow, "option_symbol" | "chart_symbol" | "display_symbol" | "symbol">,
 ) {
-  return (trade.chart_symbol ?? trade.display_symbol ?? trade.symbol ?? "SPY").replace(
+  return (trade.option_symbol ?? trade.chart_symbol ?? trade.display_symbol ?? trade.symbol ?? "SPY")
+    .replace(/\s+/g, "")
+    .replace(
     /_TEST$/i,
     "",
   );

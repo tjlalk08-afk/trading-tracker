@@ -36,6 +36,8 @@ type CandlePayload = {
   error?: string;
 };
 
+const DISPLAY_TIMEZONE = "America/Chicago";
+
 function formatDateTime(value: string | null) {
   if (!value) return "-";
   const date = new Date(value);
@@ -46,6 +48,8 @@ function formatDateTime(value: string | null) {
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: DISPLAY_TIMEZONE,
+    timeZoneName: "short",
   });
 }
 
