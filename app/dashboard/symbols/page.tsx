@@ -118,7 +118,7 @@ export default function SymbolsPage() {
     };
   }, [timeframe]);
 
-  const rows = data?.rows ?? [];
+  const rows = useMemo(() => data?.rows ?? [], [data]);
 
   const summary = useMemo(() => {
     const totalRealized = data?.summary?.realized_pl ?? 0;
@@ -150,7 +150,7 @@ export default function SymbolsPage() {
   }, [data, rows]);
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="bg-black text-white">
       <div className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute left-1/2 top-0 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-emerald-500/8 blur-[140px]" />
@@ -168,34 +168,31 @@ export default function SymbolsPage() {
           />
         </div>
 
-        <div className="relative mx-auto w-full max-w-7xl px-6 pb-12 pt-8">
-          <section className="rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur-sm">
-            <div className="border-b border-white/10 px-6 py-6 md:px-8">
-              <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                <div className="max-w-2xl">
-                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-emerald-300">
+        <div className="relative mx-auto w-full max-w-[1880px] px-4 pb-8 pt-3 sm:px-5 xl:px-6">
+          <section className="rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_24px_64px_rgba(0,0,0,0.4)] backdrop-blur-sm">
+            <div className="border-b border-white/10 px-4 py-4 sm:px-5 xl:px-6 xl:py-5">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div className="max-w-3xl">
+                  <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-emerald-300">
                     <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
                     Live Trade Analytics
                   </div>
 
-                  <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
+                  <h1 className="text-3xl font-semibold tracking-tight sm:text-[2.1rem] xl:text-4xl">
                     Symbols
                   </h1>
 
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-white/60 md:text-[15px]">
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-white/60">
                     Ranked ticker performance from completed live trades only.
                     Live versus test can be compared side by side in Compare.
                   </p>
 
-                  <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-white/45">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-white/45">
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
                       {timeframe} window
                     </span>
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
-                      Live only
-                    </span>
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
-                      Completed live trades
+                      Live completed trades
                     </span>
                   </div>
                 </div>
@@ -208,7 +205,7 @@ export default function SymbolsPage() {
                         <button
                           key={tf}
                           onClick={() => setTimeframe(tf)}
-                          className={`rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+                          className={`rounded-xl px-3.5 py-2 text-sm font-medium transition ${
                             active
                               ? "bg-emerald-400 text-black shadow-[0_0_24px_rgba(52,211,153,0.25)]"
                               : "text-white/70 hover:bg-white/8 hover:text-white"
@@ -223,16 +220,16 @@ export default function SymbolsPage() {
               </div>
             </div>
 
-            <div className="px-6 py-6 md:px-8">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
-                <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-500/[0.14] via-emerald-500/[0.04] to-transparent p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <div className="px-4 py-4 sm:px-5 xl:px-6 xl:py-5">
+              <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-500/[0.14] via-emerald-500/[0.04] to-transparent p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
                         Realized P/L
                       </div>
                       <div
-                        className={`mt-3 text-3xl font-semibold ${getPerformanceTone(
+                        className={`mt-2 text-2xl font-semibold sm:text-[1.8rem] ${getPerformanceTone(
                           summary.totalRealized,
                         )}`}
                       >
@@ -251,31 +248,31 @@ export default function SymbolsPage() {
                           : "Flat"}
                     </div>
                   </div>
-                  <div className="mt-5 flex items-center justify-between text-sm text-white/50">
+                  <div className="mt-3 flex items-center justify-between text-xs text-white/50 sm:text-sm">
                     <span>{timeframe} aggregate</span>
                     <span>{summary.totalSymbols} symbols tracked</span>
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                   <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
                     Win Rate
                   </div>
-                  <div className="mt-3 text-3xl font-semibold text-white">
+                  <div className="mt-2 text-2xl font-semibold text-white sm:text-[1.8rem]">
                     {formatPct(summary.overallWinRate)}
                   </div>
-                  <div className="mt-5 flex items-center justify-between text-sm text-white/50">
+                  <div className="mt-3 flex items-center justify-between text-xs text-white/50 sm:text-sm">
                     <span>Closed live trades only</span>
                     <span>{summary.totalTrades} total trades</span>
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                   <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
                     Best Symbol
                   </div>
                   <div className="mt-3 flex items-end justify-between gap-3">
-                    <div className="text-3xl font-semibold text-white">
+                    <div className="text-2xl font-semibold text-white sm:text-[1.8rem]">
                       {summary.bestSymbol?.symbol || "—"}
                     </div>
                     {summary.bestSymbol ? (
@@ -284,7 +281,7 @@ export default function SymbolsPage() {
                       </div>
                     ) : null}
                   </div>
-                  <div className="mt-5 flex items-center justify-between text-sm text-white/50">
+                  <div className="mt-3 flex items-center justify-between text-xs text-white/50 sm:text-sm">
                     <span>
                       {summary.bestSymbol
                         ? formatMoney(summary.bestSymbol.realized_pl)
@@ -298,14 +295,14 @@ export default function SymbolsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                   <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
                     Desk Read
                   </div>
-                  <div className="mt-3 text-3xl font-semibold text-white">
+                  <div className="mt-2 text-2xl font-semibold text-white sm:text-[1.8rem]">
                     {summary.profitableSymbols}/{summary.totalSymbols}
                   </div>
-                  <div className="mt-5 flex items-center justify-between text-sm text-white/50">
+                  <div className="mt-3 flex items-center justify-between text-xs text-white/50 sm:text-sm">
                     <span>Profitable tickers</span>
                     <span>
                       {summary.worstSymbol
@@ -316,8 +313,8 @@ export default function SymbolsPage() {
                 </div>
               </div>
 
-              <div className="mt-6 overflow-hidden rounded-[28px] border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                <div className="flex flex-col gap-3 border-b border-white/10 px-5 py-4 md:flex-row md:items-center md:justify-between">
+              <div className="mt-4 overflow-hidden rounded-[24px] border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                <div className="flex flex-col gap-2.5 border-b border-white/10 px-4 py-3.5 sm:px-5 md:flex-row md:items-center md:justify-between">
                   <div>
                     <h2 className="text-lg font-medium text-white">
                       Ticker Breakdown
@@ -329,16 +326,13 @@ export default function SymbolsPage() {
 
                   <div className="flex flex-wrap items-center gap-2 text-xs text-white/45">
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
-                      Source: Completed live trades
-                    </span>
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
                       Start: {data?.start_date ?? "—"}
                     </span>
                   </div>
                 </div>
 
                 {loading ? (
-                  <div className="px-5 py-16">
+                  <div className="px-4 py-12 sm:px-5">
                     <div className="mx-auto flex max-w-md flex-col items-center justify-center text-center">
                       <div className="mb-4 h-10 w-10 animate-pulse rounded-full border border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_30px_rgba(52,211,153,0.18)]" />
                       <div className="text-base font-medium text-white">
@@ -351,8 +345,8 @@ export default function SymbolsPage() {
                     </div>
                   </div>
                 ) : error ? (
-                  <div className="px-5 py-16">
-                    <div className="mx-auto max-w-xl rounded-3xl border border-red-500/20 bg-red-500/8 p-6 text-center">
+                  <div className="px-4 py-12 sm:px-5">
+                    <div className="mx-auto max-w-xl rounded-3xl border border-red-500/20 bg-red-500/8 p-5 text-center">
                       <div className="text-sm font-medium uppercase tracking-[0.2em] text-red-300">
                         Load Error
                       </div>
@@ -360,8 +354,8 @@ export default function SymbolsPage() {
                     </div>
                   </div>
                 ) : rows.length === 0 ? (
-                  <div className="px-5 py-16">
-                    <div className="mx-auto max-w-2xl rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.02] p-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                  <div className="px-4 py-12 sm:px-5">
+                    <div className="mx-auto max-w-2xl rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.02] p-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                       <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xl text-white/70">
                         ⌁
                       </div>

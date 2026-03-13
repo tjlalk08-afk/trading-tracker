@@ -194,13 +194,13 @@ export default function InvestorRequestAdminClient({
   }
 
   return (
-    <div className="relative isolate space-y-2.5 overflow-hidden pt-4">
+    <div className="relative isolate space-y-2 overflow-hidden pt-2">
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[380px] bg-[radial-gradient(circle_at_10%_0%,rgba(16,185,129,0.12),transparent_24%),radial-gradient(circle_at_90%_0%,rgba(59,130,246,0.12),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(99,102,241,0.08),transparent_30%)]" />
 
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+      <div className="flex flex-col gap-2.5 xl:flex-row xl:items-end xl:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-4xl font-semibold tracking-tight text-white">Investor Admin Review</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-white xl:text-4xl">Investor Admin Review</h1>
             <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/65">
               Review Queue
             </div>
@@ -219,11 +219,11 @@ export default function InvestorRequestAdminClient({
         </Link>
       </div>
 
-      <Surface className="p-4">
+      <Surface className="p-3.5 sm:p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <SectionLabel>Pending Queue</SectionLabel>
-            <div className="mt-1 text-[1.8rem] font-semibold text-white">Approve or Decline Requests</div>
+            <div className="mt-1 text-[1.5rem] font-semibold text-white sm:text-[1.7rem]">Approve or Decline Requests</div>
             <div className="mt-1 text-sm text-white/55">
               Approved requests are moved into posted transactions and logged in Supabase.
             </div>
@@ -240,13 +240,13 @@ export default function InvestorRequestAdminClient({
           </div>
         ) : null}
 
-        <div className="mt-4">
+        <div className="mt-3">
           {pendingRequests.length ? (
             <div className="space-y-2.5">
               {pendingRequests.map((request) => (
                 <div
                   key={request.id}
-                  className="rounded-xl border border-white/10 bg-black/20 px-4 py-3"
+                  className="rounded-xl border border-white/10 bg-black/20 px-3.5 py-3"
                 >
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0">
@@ -313,9 +313,9 @@ export default function InvestorRequestAdminClient({
 
       <div className="grid grid-cols-1 gap-2.5 xl:grid-cols-2">
         <Surface className="overflow-hidden">
-          <div className="border-b border-white/10 px-4 py-4">
+          <div className="border-b border-white/10 px-4 py-3.5">
             <SectionLabel>All Capital Requests</SectionLabel>
-            <div className="mt-1 text-[1.65rem] font-semibold text-white">Request History</div>
+            <div className="mt-1 text-[1.45rem] font-semibold text-white sm:text-[1.6rem]">Request History</div>
             <div className="mt-1 text-sm text-white/55">
               Pending, completed, and declined requests.
             </div>
@@ -373,9 +373,9 @@ export default function InvestorRequestAdminClient({
         </Surface>
 
         <Surface className="overflow-hidden">
-          <div className="border-b border-white/10 px-4 py-4">
+          <div className="border-b border-white/10 px-4 py-3.5">
             <SectionLabel>Posted Transactions</SectionLabel>
-            <div className="mt-1 text-[1.65rem] font-semibold text-white">Posted Transactions</div>
+            <div className="mt-1 text-[1.45rem] font-semibold text-white sm:text-[1.6rem]">Posted Transactions</div>
             <div className="mt-1 text-sm text-white/55">
               Approved requests converted into posted capital activity.
             </div>

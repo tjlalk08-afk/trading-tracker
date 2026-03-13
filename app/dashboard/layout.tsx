@@ -42,7 +42,7 @@ export default function DashboardLayout({
 
       <div className="relative z-10">
         <header className="sticky top-0 z-40 border-b border-white/10 bg-[#05080d]/80 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-[1720px] flex-col gap-3 px-4 py-3 sm:px-5 xl:flex-row xl:items-center xl:justify-between xl:px-8">
+          <div className="mx-auto flex max-w-[1880px] flex-col gap-2.5 px-4 py-3 sm:px-5 xl:flex-row xl:items-center xl:justify-between xl:px-6">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.24em] text-white/40">
@@ -83,12 +83,12 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        <main className="mx-auto max-w-[1720px] px-4 py-4 pb-24 sm:px-5 sm:py-5 sm:pb-24 xl:px-8 xl:py-8 xl:pb-8">
+        <main className="mx-auto max-w-[1880px] px-4 py-4 pb-24 sm:px-5 sm:py-5 sm:pb-24 xl:px-6 xl:py-6 xl:pb-8">
           {children}
         </main>
 
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#05080d]/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur-xl xl:hidden">
-          <div className="mx-auto grid max-w-[1720px] grid-cols-5 gap-2">
+          <div className="mx-auto grid max-w-[1880px] grid-cols-5 gap-2">
             {MOBILE_NAV_ITEMS.map((item) => {
               const active = isActive(pathname, item.href);
 

@@ -44,7 +44,11 @@ type PostedTransactionRow = {
 };
 
 type InvestorDashboardClientProps = {
-  initialData?: any;
+  initialData?: {
+    fundEquity?: number | null;
+    equity?: number | null;
+    totalUnits?: number | null;
+  } | null;
   initialRequests: CapitalRequestRow[];
   initialPostedTransactions: PostedTransactionRow[];
   isAdmin: boolean;
@@ -183,10 +187,10 @@ function StatCard({
   sub: string;
 }) {
   return (
-    <Surface className="p-4">
+    <Surface className="p-3.5 sm:p-4">
       <SectionLabel>{title}</SectionLabel>
-      <div className="mt-2 text-[2rem] font-semibold text-white">{value}</div>
-      <div className="mt-2 text-sm text-white/55">{sub}</div>
+      <div className="mt-1.5 text-[1.55rem] font-semibold text-white sm:text-[1.8rem]">{value}</div>
+      <div className="mt-1.5 text-xs text-white/55 sm:text-sm">{sub}</div>
     </Surface>
   );
 }
@@ -378,19 +382,19 @@ export default function InvestorDashboardClient({
   }
 
   return (
-    <div className="relative isolate space-y-2.5 overflow-hidden pt-4">
+    <div className="relative isolate space-y-2 overflow-hidden pt-2">
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[380px] bg-[radial-gradient(circle_at_10%_0%,rgba(16,185,129,0.12),transparent_24%),radial-gradient(circle_at_90%_0%,rgba(59,130,246,0.12),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(99,102,241,0.08),transparent_30%)]" />
 
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+      <div className="flex flex-col gap-2.5 xl:flex-row xl:items-end xl:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-4xl font-semibold tracking-tight text-white">Investors</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-white xl:text-4xl">Investors</h1>
             <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/65">
               Units-Based Ownership
             </div>
           </div>
 
-          <div className="max-w-4xl text-sm text-white/58">
+          <div className="max-w-3xl text-sm text-white/58">
             Units-based ownership with deposits, withdrawals, grants, and investor capital requests.
           </div>
         </div>
@@ -405,7 +409,7 @@ export default function InvestorDashboardClient({
         ) : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-5">
         <StatCard title="Fund Equity" value={money(fundEquity)} sub="Latest dashboard snapshot" />
         <StatCard
           title="Total Units"
@@ -427,14 +431,14 @@ export default function InvestorDashboardClient({
 
       <div className="grid grid-cols-1 gap-2.5 xl:grid-cols-12">
         <div className="xl:col-span-5">
-          <Surface className="p-4">
+          <Surface className="p-3.5 sm:p-4">
             <SectionLabel>Capital Actions</SectionLabel>
-            <div className="mt-1 text-[1.8rem] font-semibold text-white">Capital Actions</div>
+            <div className="mt-1 text-[1.5rem] font-semibold text-white sm:text-[1.7rem]">Capital Actions</div>
             <div className="mt-1 text-sm text-white/55">
               Submit investor requests for deposits, withdrawals, or transfers.
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2.5">
+            <div className="mt-3 flex flex-wrap gap-2">
               <ActionButton tone="deposit" onClick={() => openRequestForm("Deposit")}>
                 Request Deposit
               </ActionButton>
@@ -449,7 +453,7 @@ export default function InvestorDashboardClient({
             {activeAction ? (
               <form
                 onSubmit={submitRequest}
-                className="mt-4 space-y-3 rounded-xl border border-white/10 bg-black/20 p-4"
+                className="mt-3 space-y-3 rounded-xl border border-white/10 bg-black/20 p-3.5"
               >
                 <div className="text-sm font-medium text-white">New {activeAction} Request</div>
 
@@ -553,11 +557,11 @@ export default function InvestorDashboardClient({
         </div>
 
         <div className="xl:col-span-7">
-          <Surface className="p-4">
+          <Surface className="p-3.5 sm:p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <SectionLabel>Pending Request Queue</SectionLabel>
-                <div className="mt-1 text-[1.8rem] font-semibold text-white">Awaiting Review</div>
+                <div className="mt-1 text-[1.5rem] font-semibold text-white sm:text-[1.7rem]">Awaiting Review</div>
                 <div className="mt-1 text-sm text-white/55">
                   {isAdmin
                     ? "Pending requests across the fund."
@@ -570,13 +574,13 @@ export default function InvestorDashboardClient({
               </div>
             </div>
 
-            <div className="mt-4">
+            <div className="mt-3">
               {pendingRequests.length ? (
                 <div className="space-y-2.5">
                   {pendingRequests.slice(0, 4).map((request) => (
                     <div
                       key={request.id}
-                      className="rounded-xl border border-white/10 bg-black/20 px-4 py-3"
+                      className="rounded-xl border border-white/10 bg-black/20 px-3.5 py-3"
                     >
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
@@ -639,9 +643,9 @@ export default function InvestorDashboardClient({
       </div>
 
       <Surface className="overflow-hidden">
-        <div className="border-b border-white/10 px-4 py-4">
+        <div className="border-b border-white/10 px-4 py-3.5">
           <SectionLabel>Ownership Table</SectionLabel>
-          <div className="mt-1 text-[1.9rem] font-semibold text-white">Ownership Table</div>
+          <div className="mt-1 text-[1.55rem] font-semibold text-white">Ownership Table</div>
           <div className="mt-1 text-sm text-white/55">
             Live member ownership based on current unit pricing.
           </div>
@@ -709,9 +713,9 @@ export default function InvestorDashboardClient({
 
       <div className="grid grid-cols-1 gap-2.5 xl:grid-cols-2">
         <Surface className="overflow-hidden">
-          <div className="border-b border-white/10 px-4 py-4">
+          <div className="border-b border-white/10 px-4 py-3.5">
             <SectionLabel>Recent Capital Requests</SectionLabel>
-            <div className="mt-1 text-[1.65rem] font-semibold text-white">Recent Capital Requests</div>
+            <div className="mt-1 text-[1.45rem] font-semibold text-white sm:text-[1.6rem]">Recent Capital Requests</div>
             <div className="mt-1 text-sm text-white/55">
               {isAdmin
                 ? "All recent deposit, withdrawal, and transfer requests."
@@ -773,9 +777,9 @@ export default function InvestorDashboardClient({
         </Surface>
 
         <Surface className="overflow-hidden">
-          <div className="border-b border-white/10 px-4 py-4">
+          <div className="border-b border-white/10 px-4 py-3.5">
             <SectionLabel>Recent Posted Transactions</SectionLabel>
-            <div className="mt-1 text-[1.65rem] font-semibold text-white">
+            <div className="mt-1 text-[1.45rem] font-semibold text-white sm:text-[1.6rem]">
               Recent Posted Transactions
             </div>
             <div className="mt-1 text-sm text-white/55">

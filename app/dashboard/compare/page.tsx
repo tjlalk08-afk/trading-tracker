@@ -142,23 +142,6 @@ function timeAgo(dateStr: string | null | undefined) {
   return `${days}d ago`;
 }
 
-function formatDateTimeCT(dateStr: string | null | undefined) {
-  if (!dateStr) return "—";
-
-  const date = new Date(dateStr);
-  if (!Number.isFinite(date.getTime())) return dateStr;
-
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Chicago",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(date);
-}
-
 function formatShortDateCT(dateStr: string | null | undefined) {
   if (!dateStr) return "—";
 
@@ -769,8 +752,8 @@ export default function ComparePage() {
       try {
         setError("");
         await loadAll();
-      } catch (err: any) {
-        setError(err?.message || "Failed to load compare data");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to load compare data");
       } finally {
         setLoading(false);
       }
@@ -941,14 +924,10 @@ export default function ComparePage() {
     <div className="relative isolate space-y-2 overflow-hidden pt-1">
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] bg-[radial-gradient(circle_at_10%_0%,rgba(16,185,129,0.12),transparent_24%),radial-gradient(circle_at_90%_0%,rgba(59,130,246,0.12),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(99,102,241,0.08),transparent_30%)]" />
 
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+      <div className="flex flex-col gap-2.5 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <div className="mt-1 flex flex-wrap items-center gap-3">
-            <h1 className="text-4xl font-semibold tracking-tight text-white">Compare</h1>
-
-            <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/65">
-              Saved Snapshots
-            </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2.5">
+            <h1 className="text-3xl font-semibold tracking-tight text-white xl:text-4xl">Compare</h1>
 
             <div
               className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.18em] ${freshness.badgeClass}`}
@@ -957,26 +936,26 @@ export default function ComparePage() {
             </div>
           </div>
 
-          <div className="mt-2 max-w-3xl text-sm text-white/58">
+          <div className="mt-1.5 max-w-2xl text-sm text-white/58">
             Side-by-side live versus test account comparison across saved snapshots, daily history, and optional trade history.
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/70">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="rounded-xl border border-white/10 bg-white/[0.05] px-3.5 py-2 text-sm text-white/70">
             Last saved: <span className="font-medium text-white">{snapshotAge}</span>
           </div>
 
           <Link
             href="/dashboard/live"
-            className="rounded-xl border border-cyan-400/20 bg-cyan-500/12 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/18"
+            className="rounded-xl border border-cyan-400/20 bg-cyan-500/12 px-3.5 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/18"
           >
             Live
           </Link>
 
           <Link
             href="/dashboard/performance"
-            className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/80 transition hover:bg-white/[0.08]"
+            className="rounded-xl border border-white/10 bg-white/[0.05] px-3.5 py-2 text-sm text-white/80 transition hover:bg-white/[0.08]"
           >
             Performance
           </Link>
