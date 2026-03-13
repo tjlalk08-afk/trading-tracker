@@ -71,6 +71,15 @@ export type TradeJournalScreenshotRow = {
   created_at: string | null;
 };
 
+export type TradeJournalCandle = {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number | null;
+};
+
 export type TradeJournalSummary = {
   trades: number;
   winners: number;
