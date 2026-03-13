@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import TradeCandleChart from "@/components/TradeCandleChart";
 import {
   formatMoney,
   formatPercent,
+  type TradeJournalCandle,
   type TradeJournalDetailRow,
   type TradeJournalNoteRow,
   type TradeJournalScreenshotRow,
@@ -15,6 +17,16 @@ type TradeDetailPayload = {
   trade?: TradeJournalDetailRow;
   notes?: TradeJournalNoteRow[];
   screenshots?: TradeJournalScreenshotRow[];
+  error?: string;
+};
+
+type CandlePayload = {
+  ok: boolean;
+  symbol?: string;
+  interval?: string;
+  candles?: TradeJournalCandle[];
+  opened_at?: string | null;
+  closed_at?: string | null;
   error?: string;
 };
 
@@ -65,8 +77,9 @@ export default function JournalTradeDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const [tradeId, setTradeId] = useState<string>("");
+  const [tradeId, setTradeId] = useState("");
   const [payload, setPayload] = useState<TradeDetailPayload | null>(null);
+  const [candlePayload, setCandlePayload] = useState<CandlePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -96,17 +109,28 @@ export default function JournalTradeDetailPage({
       setError("");
 
       try {
-        const res = await fetch(`/api/journal/${tradeId}`, {
-          cache: "no-store",
-        });
-        const json: TradeDetailPayload = await res.json();
+        const [tradeRes, candleRes] = await Promise.all([
+          fetch(`/api/journal/${tradeId}`, {
+            cache: "no-store",
+          }),
+          fetch(`/api/journal/${tradeId}/candles`, {
+            cache: "no-store",
+          }),
+        ]);
 
-        if (!res.ok || !json.ok) {
-          throw new Error(json.error || "Failed to load trade detail");
+        const tradeJson: TradeDetailPayload = await tradeRes.json();
+        const candleJson: CandlePayload = await candleRes.json().catch(() => ({
+          ok: false,
+          error: "Failed to load candles",
+        }));
+
+        if (!tradeRes.ok || !tradeJson.ok) {
+          throw new Error(tradeJson.error || "Failed to load trade detail");
         }
 
         if (!cancelled) {
-          setPayload(json);
+          setPayload(tradeJson);
+          setCandlePayload(candleJson);
         }
       } catch (err) {
         if (!cancelled) {
@@ -128,6 +152,11 @@ export default function JournalTradeDetailPage({
   const trade = payload?.trade;
   const notes = payload?.notes ?? [];
   const screenshots = payload?.screenshots ?? [];
+  const candles = candlePayload?.candles ?? [];
+  const candleError =
+    candlePayload && !candlePayload.ok
+      ? candlePayload.error ?? "Failed to load candles"
+      : "";
   const symbol = useMemo(
     () => trade?.display_symbol ?? trade?.symbol ?? "SPY",
     [trade],
@@ -145,7 +174,7 @@ export default function JournalTradeDetailPage({
     return (
       <div className="space-y-4">
         <Link href="/dashboard/journal" className="text-sm text-cyan-300 hover:text-cyan-200">
-          ← Back to journal
+          {"<-"} Back to journal
         </Link>
         <div className="rounded-[28px] border border-red-500/20 bg-red-500/8 px-5 py-6 text-red-200">
           {error || "Trade not found"}
@@ -158,7 +187,7 @@ export default function JournalTradeDetailPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <Link href="/dashboard/journal" className="text-sm text-cyan-300 hover:text-cyan-200">
-          ← Back to journal
+          {"<-"} Back to journal
         </Link>
         <a
           href={tradingViewUrl(symbol)}
@@ -180,8 +209,8 @@ export default function JournalTradeDetailPage({
               {trade.display_symbol ?? trade.symbol ?? "Trade"}
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-white/60">
-              This is where the journal becomes more than a summary table. You can review when the trade
-              happened, what account it came from, how it performed, and tie that back to chart context.
+              This detail view now includes a real 5 minute candle panel for the trade window, so we can
+              review the move around entry and exit instead of only reading summary numbers.
             </p>
           </div>
 
@@ -209,28 +238,33 @@ export default function JournalTradeDetailPage({
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
-                Chart Context
+                5 Minute Candle Chart
               </div>
-              <h2 className="mt-2 text-2xl font-semibold text-white">Underlying chart</h2>
+              <h2 className="mt-2 text-2xl font-semibold text-white">Trade replay window</h2>
             </div>
             <div className="text-sm text-white/45">
-              {formatDateTime(trade.opened_at)} → {formatDateTime(trade.closed_at)}
+              {formatDateTime(trade.opened_at)} {"->"} {formatDateTime(trade.closed_at)}
             </div>
           </div>
 
           <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
-            We can show the symbol chart and the trade timing right now. To show the exact chart state you saw
-            at entry and exit, the next step is saving screenshots or candle snapshots at trade time.
+            Entry and exit are marked directly on the candle chart. If the candle provider misses data,
+            the TradingView link above stays available as a fallback.
           </div>
 
-          <div className="mt-4 h-[520px] overflow-hidden rounded-2xl border border-white/10 bg-black">
-            <iframe
-              title={`Chart for ${symbol}`}
-              src={tradingViewUrl(symbol)}
-              className="h-full w-full"
-              style={{ border: 0 }}
+          <div className="mt-4">
+            <TradeCandleChart
+              candles={candles}
+              openedAt={trade.opened_at}
+              closedAt={trade.closed_at}
             />
           </div>
+
+          {candleError ? (
+            <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-4 text-sm text-amber-100">
+              Candle data warning: {candleError}
+            </div>
+          ) : null}
         </section>
 
         <section className="xl:col-span-4 rounded-[28px] border border-white/10 bg-black/30 p-5">
@@ -291,8 +325,8 @@ export default function JournalTradeDetailPage({
           </div>
           {screenshots.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-6 text-white/55">
-              No screenshots saved yet. If you want the journal to feel like TradeZella, the next big upgrade is
-              attaching chart screenshots to each trade at review time.
+              No screenshots saved yet. If you want this to feel even more like a true journal, the next
+              best upgrade is attaching review screenshots directly to each trade.
             </div>
           ) : (
             <div className="mt-4 grid grid-cols-1 gap-3">
