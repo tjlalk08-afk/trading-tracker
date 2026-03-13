@@ -28,19 +28,17 @@ export default function TradeCandleChart({
   openedAt,
   closedAt,
   ema10 = [],
-  ema20 = [],
 }: {
   candles: TradeJournalCandle[];
   openedAt: string | null;
   closedAt: string | null;
   ema10?: TradeJournalLinePoint[];
-  ema20?: TradeJournalLinePoint[];
 }) {
   const width = 980;
-  const height = 460;
-  const padLeft = 24;
+  const height = 420;
+  const padLeft = 18;
   const padRight = 18;
-  const padTop = 16;
+  const padTop = 18;
   const padBottom = 28;
 
   const chart = useMemo(() => {
@@ -56,7 +54,7 @@ export default function TradeCandleChart({
     const spread = maxPrice - minPrice || 1;
     const innerWidth = width - padLeft - padRight;
     const innerHeight = height - padTop - padBottom;
-    const candleWidth = Math.max(3, innerWidth / Math.max(candles.length * 1.8, 1));
+    const candleWidth = Math.max(6, Math.min(18, innerWidth / Math.max(candles.length * 1.15, 1)));
 
     const y = (price: number) =>
       padTop + (1 - (price - minPrice) / spread) * innerHeight;
@@ -97,7 +95,7 @@ export default function TradeCandleChart({
       <svg viewBox={`0 0 ${width} ${height}`} className="h-[460px] w-full">
         <rect x="0" y="0" width={width} height={height} fill="transparent" />
 
-        {axisLabels.map((price) => {
+        {axisLabels.map((price, index) => {
           const y = chart.y(price);
           return (
             <g key={price}>
@@ -106,8 +104,8 @@ export default function TradeCandleChart({
                 x2={width - padRight}
                 y1={y}
                 y2={y}
-                stroke="rgba(255,255,255,0.08)"
-                strokeDasharray="4 6"
+                stroke="rgba(255,255,255,0.06)"
+                strokeDasharray={index === 1 ? "4 8" : "3 9"}
               />
               <text x={width - 4} y={y + 4} fill="rgba(255,255,255,0.55)" fontSize="11" textAnchor="end">
                 {price.toFixed(2)}
@@ -155,41 +153,30 @@ export default function TradeCandleChart({
           const highY = chart.y(candle.high);
           const lowY = chart.y(candle.low);
           const up = candle.close >= candle.open;
-          const color = up ? "#14e4ff" : "#ff0bb7";
+          const color = up ? "#15dcff" : "#ff00b8";
           const bodyTop = Math.min(openY, closeY);
           const bodyHeight = Math.max(Math.abs(closeY - openY), 1.5);
 
           return (
             <g key={candle.time}>
-              <line x1={x} x2={x} y1={highY} y2={lowY} stroke={color} strokeWidth="1.4" />
+              <line x1={x} x2={x} y1={highY} y2={lowY} stroke={color} strokeWidth="1.2" />
               <rect
                 x={x - chart.candleWidth / 2}
                 y={bodyTop}
                 width={chart.candleWidth}
                 height={bodyHeight}
                 fill={color}
-                rx="1"
+                rx="0.8"
               />
             </g>
           );
         })}
 
-        {ema20.length > 1 ? (
-          <polyline
-            fill="none"
-            stroke="rgba(196,181,253,0.8)"
-            strokeWidth="1.35"
-            points={ema20
-              .map((point, index) => `${chart.x(index)},${chart.y(point.value)}`)
-              .join(" ")}
-          />
-        ) : null}
-
         {ema10.length > 1 ? (
           <polyline
             fill="none"
-            stroke="rgba(96,165,250,0.95)"
-            strokeWidth="1.5"
+            stroke="rgba(84,160,255,0.92)"
+            strokeWidth="1.4"
             points={ema10
               .map((point, index) => `${chart.x(index)},${chart.y(point.value)}`)
               .join(" ")}
@@ -215,11 +202,8 @@ export default function TradeCandleChart({
             );
           })}
 
-        <text x={padLeft + 4} y={padTop + 14} fill="rgba(96,165,250,0.95)" fontSize="11">
+        <text x={padLeft + 4} y={padTop + 14} fill="rgba(84,160,255,0.92)" fontSize="11">
           EMA 10
-        </text>
-        <text x={padLeft + 4} y={padTop + 30} fill="rgba(196,181,253,0.82)" fontSize="11">
-          EMA 20
         </text>
       </svg>
     </div>

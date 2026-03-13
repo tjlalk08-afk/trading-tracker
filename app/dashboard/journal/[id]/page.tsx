@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import TradeCandleChart from "@/components/TradeCandleChart";
 import {
@@ -28,7 +29,6 @@ type CandlePayload = {
   candles?: TradeJournalCandle[];
   overlays?: {
     ema10?: TradeJournalLinePoint[];
-    ema20?: TradeJournalLinePoint[];
   };
   option_symbol?: string | null;
   opened_at?: string | null;
@@ -88,6 +88,11 @@ export default function JournalTradeDetailPage({
   const [candlePayload, setCandlePayload] = useState<CandlePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [shotUrl, setShotUrl] = useState("");
+  const [shotCaption, setShotCaption] = useState("");
+  const [savingShot, setSavingShot] = useState(false);
+  const [shotMessage, setShotMessage] = useState("");
+  const [shotError, setShotError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -160,7 +165,6 @@ export default function JournalTradeDetailPage({
   const screenshots = payload?.screenshots ?? [];
   const candles = candlePayload?.candles ?? [];
   const ema10 = candlePayload?.overlays?.ema10 ?? [];
-  const ema20 = candlePayload?.overlays?.ema20 ?? [];
   const candleError =
     candlePayload && !candlePayload.ok
       ? candlePayload.error ?? "Failed to load candles"
@@ -191,6 +195,55 @@ export default function JournalTradeDetailPage({
     );
   }
 
+  async function saveScreenshot(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tradeId || !shotUrl.trim()) return;
+
+    setSavingShot(true);
+    setShotError("");
+    setShotMessage("");
+
+    try {
+      const response = await fetch(`/api/journal/${tradeId}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          image_url: shotUrl.trim(),
+          caption: shotCaption.trim() || null,
+          shot_type: "chart",
+        }),
+      });
+
+      const json = (await response.json()) as {
+        ok: boolean;
+        screenshot?: TradeJournalScreenshotRow;
+        error?: string;
+      };
+
+      if (!response.ok || !json.ok || !json.screenshot) {
+        throw new Error(json.error || "Failed to save screenshot");
+      }
+
+      setPayload((current) =>
+        current
+          ? {
+              ...current,
+              screenshots: [json.screenshot!, ...(current.screenshots ?? [])],
+            }
+          : current,
+      );
+      setShotUrl("");
+      setShotCaption("");
+      setShotMessage("Screenshot attached to this trade.");
+    } catch (err) {
+      setShotError(err instanceof Error ? err.message : "Failed to save screenshot");
+    } finally {
+      setSavingShot(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -217,8 +270,8 @@ export default function JournalTradeDetailPage({
               {trade.display_symbol ?? trade.symbol ?? "Trade"}
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-white/60">
-              This detail view now includes a real 5 minute candle panel for the trade window, so we can
-              review the move around entry and exit instead of only reading summary numbers.
+              This view now pairs a tighter 5 minute replay with your own saved chart screenshots, so the
+              trade review can show both the reconstructed move and the actual chart you were trading from.
             </p>
           </div>
 
@@ -256,8 +309,8 @@ export default function JournalTradeDetailPage({
           </div>
 
           <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
-            Entry and exit are marked directly on the candle chart. If the candle provider misses data,
-            the TradingView link above stays available as a fallback.
+            Entry and exit are marked directly on the candle chart. This replay is now cropped much tighter
+            around the trade so the setup reads more like the actual move instead of a broad session chart.
           </div>
 
           <div className="mt-4">
@@ -266,7 +319,6 @@ export default function JournalTradeDetailPage({
               openedAt={trade.opened_at}
               closedAt={trade.closed_at}
               ema10={ema10}
-              ema20={ema20}
             />
           </div>
 
@@ -339,28 +391,75 @@ export default function JournalTradeDetailPage({
           <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
             Screenshots
           </div>
+          <form onSubmit={saveScreenshot} className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="text-sm text-white/70">
+              Add the actual chart image URL for this trade so the journal shows exactly what you were looking at.
+            </div>
+            <input
+              value={shotUrl}
+              onChange={(event) => setShotUrl(event.target.value)}
+              placeholder="https://..."
+              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
+            />
+            <input
+              value={shotCaption}
+              onChange={(event) => setShotCaption(event.target.value)}
+              placeholder="Caption, setup note, or chart label"
+              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/40"
+            />
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs text-white/45">
+                Tip: use your broker, TradingView, or image host link here.
+              </div>
+              <button
+                type="submit"
+                disabled={savingShot || !shotUrl.trim()}
+                className="rounded-xl border border-cyan-400/20 bg-cyan-500/12 px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/18 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingShot ? "Saving..." : "Add Screenshot"}
+              </button>
+            </div>
+            {shotMessage ? (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-sm text-emerald-200">
+                {shotMessage}
+              </div>
+            ) : null}
+            {shotError ? (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2 text-sm text-red-200">
+                {shotError}
+              </div>
+            ) : null}
+          </form>
           {screenshots.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-6 text-white/55">
-              No screenshots saved yet. If you want this to feel even more like a true journal, the next
-              best upgrade is attaching review screenshots directly to each trade.
+              No screenshots saved yet. Once you attach the actual chart image here, this page becomes much
+              closer to a true trade review instead of only a reconstructed replay.
             </div>
           ) : (
-            <div className="mt-4 grid grid-cols-1 gap-3">
+            <div className="mt-4 grid grid-cols-1 gap-4">
               {screenshots.map((shot) => (
-                <a
+                <div
                   key={shot.id}
-                  href={shot.image_url ?? "#"}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-white/75 hover:bg-black/30"
+                  className="overflow-hidden rounded-2xl border border-white/10 bg-black/20"
                 >
-                  <div className="text-sm font-medium text-white">
-                    {shot.caption ?? shot.shot_type ?? "Screenshot"}
+                  {shot.image_url ? (
+                    <a href={shot.image_url} target="_blank" rel="noreferrer">
+                      <img
+                        src={shot.image_url}
+                        alt={shot.caption ?? shot.shot_type ?? "Trade screenshot"}
+                        className="max-h-[360px] w-full object-contain bg-black"
+                      />
+                    </a>
+                  ) : null}
+                  <div className="px-4 py-4 text-white/75">
+                    <div className="text-sm font-medium text-white">
+                      {shot.caption ?? shot.shot_type ?? "Screenshot"}
+                    </div>
+                    <div className="mt-2 break-all text-xs text-white/50">
+                      {shot.image_url ?? "-"}
+                    </div>
                   </div>
-                  <div className="mt-2 break-all text-xs text-white/50">
-                    {shot.image_url ?? "-"}
-                  </div>
-                </a>
+                </div>
               ))}
             </div>
           )}

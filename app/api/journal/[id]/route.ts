@@ -83,3 +83,75 @@ export async function GET(
     );
   }
 }
+
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await context.params;
+    const admin = getSupabaseAdmin();
+    const body = (await request.json()) as {
+      image_url?: unknown;
+      caption?: unknown;
+      shot_type?: unknown;
+    };
+
+    const imageUrl = typeof body.image_url === "string" ? body.image_url.trim() : "";
+    const caption = typeof body.caption === "string" ? body.caption.trim() : "";
+    const shotType = typeof body.shot_type === "string" ? body.shot_type.trim() : "chart";
+
+    if (!imageUrl) {
+      return NextResponse.json(
+        { ok: false, error: "Screenshot URL is required" },
+        { status: 400 },
+      );
+    }
+
+    try {
+      const parsed = new URL(imageUrl);
+      if (!/^https?:$/.test(parsed.protocol)) {
+        throw new Error("Invalid protocol");
+      }
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: "Screenshot URL must be a valid http or https URL" },
+        { status: 400 },
+      );
+    }
+
+    const insertResult = await admin
+      .from("trade_journal_screenshots")
+      .insert({
+        trade_id: id,
+        image_url: imageUrl,
+        caption: caption || null,
+        shot_type: shotType || "chart",
+      } as never)
+      .select("id, image_url, caption, shot_type, created_at")
+      .single();
+
+    if (insertResult.error) {
+      return NextResponse.json(
+        { ok: false, error: `Failed to save screenshot: ${insertResult.error.message}` },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      screenshot: insertResult.data as TradeJournalScreenshotRow,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unexpected screenshot save error",
+      },
+      { status: 500 },
+    );
+  }
+}

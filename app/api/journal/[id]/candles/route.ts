@@ -43,10 +43,13 @@ function buildWindow(openedAt: string | null, closedAt: string | null) {
   const closeMs = closedAt ? new Date(closedAt).getTime() : openMs + 60 * 60 * 1000;
   const safeOpen = Number.isFinite(openMs) ? openMs : Date.now();
   const safeClose = Number.isFinite(closeMs) ? closeMs : safeOpen + 60 * 60 * 1000;
+  const durationMs = Math.max(safeClose - safeOpen, 60 * 1000);
+  const beforeMs = Math.min(Math.max(durationMs * 3, 15 * 60 * 1000), 35 * 60 * 1000);
+  const afterMs = Math.min(Math.max(durationMs * 2, 10 * 60 * 1000), 25 * 60 * 1000);
 
   return {
-    period1: Math.floor((safeOpen - 90 * 60 * 1000) / 1000),
-    period2: Math.floor((safeClose + 90 * 60 * 1000) / 1000),
+    period1: Math.floor((safeOpen - beforeMs) / 1000),
+    period2: Math.floor((safeClose + afterMs) / 1000),
   };
 }
 
@@ -180,7 +183,6 @@ export async function GET(
       candles,
       overlays: {
         ema10: buildEma(candles, 10),
-        ema20: buildEma(candles, 20),
       },
       option_symbol: trade.option_symbol ?? null,
       opened_at: trade.opened_at,
