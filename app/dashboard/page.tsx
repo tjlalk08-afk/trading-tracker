@@ -130,6 +130,14 @@ function deltaSupport(n: number | null | undefined, pct?: number | null) {
   return isFlatish(n) ? `${signedMoney(n)} • ${signedPct(pct)}` : signedPct(pct);
 }
 
+function metricHeadline(n: number | null | undefined) {
+  return isFlatish(n) ? money(0) : signedMoney(n);
+}
+
+function metricSupport(n: number | null | undefined, pct?: number | null) {
+  return isFlatish(n) ? "No movement" : signedPct(pct);
+}
+
 function timeAgo(dateStr: string | null | undefined) {
   if (!dateStr) return "—";
 
@@ -682,6 +690,12 @@ function healthTone(status: "ok" | "warn" | "error" | undefined) {
   return "border-red-400/20 bg-red-500/10 text-red-300";
 }
 
+function healthDot(status: "ok" | "warn" | "error" | undefined) {
+  if (status === "ok") return "bg-emerald-400";
+  if (status === "warn") return "bg-amber-400";
+  return "bg-red-400";
+}
+
 function RangeButton({
   active,
   children,
@@ -1026,7 +1040,6 @@ export default function DashboardHome() {
     };
   }, [latest]);
 
-  const rangeDescriptor = describeDelta(chartSummary.delta);
   const rangeLabel = chartRange === "ALL" ? "all saved history" : chartRange;
 
   return (
@@ -1163,7 +1176,7 @@ export default function DashboardHome() {
                     </div>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-3">
+                  <div className="mt-3 grid grid-cols-1 gap-2">
                     {[
                       { label: "Config", check: health?.checks?.config },
                       { label: "Bot Upstream", check: health?.checks?.bot },
@@ -1174,15 +1187,23 @@ export default function DashboardHome() {
                     ].map(({ label, check }) => (
                       <div
                         key={label}
-                        className={`rounded-xl border px-3 py-3 ${healthTone(check?.status)}`}
+                        className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 ${healthTone(check?.status)}`}
                       >
-                        <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">
-                          {label}
+                        <div className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${healthDot(check?.status)}`} />
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">
+                            {label}
+                          </div>
+                          <div className="mt-1 text-sm font-semibold">
+                            {check?.message ?? "Unavailable"}
+                          </div>
+                          {check?.detail ? (
+                            <div className="mt-0.5 text-[11px] opacity-80 sm:hidden">
+                              {check.detail}
+                            </div>
+                          ) : null}
                         </div>
-                        <div className="mt-2 text-sm font-semibold">
-                          {check?.message ?? "Unavailable"}
-                        </div>
-                        <div className="mt-1 text-xs opacity-80">
+                        <div className="ml-auto hidden max-w-[46%] text-right text-[11px] opacity-80 sm:block">
                           {check?.detail ?? "No extra detail"}
                         </div>
                       </div>
@@ -1218,13 +1239,8 @@ export default function DashboardHome() {
                     </div>
                   </div>
 
-                    <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-6">
+                  <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">
                     <ChartStat label="Current" value={money(chartSummary.latest)} />
-                    <ChartStat
-                      label="Trend"
-                      value={rangeDescriptor.label}
-                      tone={pnlTextClass(chartSummary.delta)}
-                    />
                     <ChartStat
                       label="Range Return"
                       value={signedMoney(chartSummary.delta)}
@@ -1256,20 +1272,20 @@ export default function DashboardHome() {
                 <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
                   <TopCard
                     title="Today's Realized"
-                    value={deltaHeadline(latest.realized_pl, "Flat")}
+                    value={metricHeadline(latest.realized_pl)}
                     sub={summary?.realizedRead}
                     tone={pnlTextClass(latest.realized_pl)}
                   />
                   <TopCard
                     title="Open Exposure"
-                    value={deltaHeadline(latest.open_pl, "Flat")}
+                    value={metricHeadline(latest.open_pl)}
                     sub={summary?.openRead}
                     tone={pnlTextClass(latest.open_pl)}
                   />
                   <TopCard
                     title="Today's Total"
-                    value={deltaHeadline(latest.total_pl, "Flat")}
-                    sub={deltaSupport(latest.total_pl, latest.total_pct)}
+                    value={metricHeadline(latest.total_pl)}
+                    sub={metricSupport(latest.total_pl, latest.total_pct)}
                     tone={pnlTextClass(latest.total_pl)}
                   />
                 </div>
@@ -1303,11 +1319,7 @@ export default function DashboardHome() {
                     value={summary?.leader ?? "—"}
                     tone={pnlTextClass(summary?.totalGap ?? 0)}
                   />
-                  <BriefStat
-                    label="Trend"
-                    value={rangeDescriptor.label}
-                    tone={pnlTextClass(chartSummary.delta)}
-                  />
+                  <BriefStat label="Range" value={chartRange === "ALL" ? "All" : chartRange} />
                 </div>
 
                 <div className="mt-3">
