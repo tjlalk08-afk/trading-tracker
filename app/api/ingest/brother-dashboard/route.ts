@@ -330,9 +330,24 @@ async function handleIngest() {
   let upsertedTrades = 0;
 
   if (trades.length > 0) {
+    const tradeHistoryRows = trades.map((trade) => ({
+      snapshot_date: trade.snapshot_date,
+      trade_day: trade.trade_day,
+      symbol: trade.symbol,
+      side: trade.side,
+      qty: trade.qty,
+      entry_price: trade.entry_price,
+      exit_price: trade.exit_price,
+      realized_pl: trade.realized_pl,
+      opened_at: trade.opened_at,
+      closed_at: trade.closed_at,
+      source: trade.source,
+      external_trade_id: trade.external_trade_id,
+    }));
+
     const { error: tradeError } = await supabaseAdmin
       .from("trade_history")
-      .upsert(trades as never, {
+      .upsert(tradeHistoryRows as never, {
         onConflict: "external_trade_id",
       });
 

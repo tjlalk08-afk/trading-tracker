@@ -7,7 +7,6 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/live", label: "Live" },
   { href: "/dashboard/symbols", label: "Symbols" },
-  { href: "/dashboard/journal", label: "Journal" },
   { href: "/dashboard/compare", label: "Compare" },
   { href: "/dashboard/performance", label: "Performance" },
   { href: "/dashboard/investors", label: "Investors" },
