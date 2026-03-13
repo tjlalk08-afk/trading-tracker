@@ -51,7 +51,7 @@ function displaySymbolFromRow(row: TradeHistoryRow) {
 }
 
 function chartSymbolFromRow(row: TradeHistoryRow) {
-  return normalizeOptionChartSymbol(row.option_symbol) ?? normalizeSymbol(row.symbol);
+  return normalizeOptionChartSymbol(row.option_symbol ?? null) ?? normalizeSymbol(row.symbol);
 }
 
 function chicagoHourFromIso(value: string | null) {
