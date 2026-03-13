@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import type { TradeJournalDetailRow, TradeJournalCandle } from "@/lib/tradeJournal";
+import type {
+  TradeJournalDetailRow,
+  TradeJournalCandle,
+  TradeJournalLinePoint,
+} from "@/lib/tradeJournal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,8 +29,13 @@ type YahooChartResponse = {
   };
 };
 
-function normalizeChartSymbol(trade: Pick<TradeJournalDetailRow, "display_symbol" | "symbol">) {
-  return (trade.display_symbol ?? trade.symbol ?? "SPY").replace(/_TEST$/i, "");
+function normalizeChartSymbol(
+  trade: Pick<TradeJournalDetailRow, "chart_symbol" | "display_symbol" | "symbol">,
+) {
+  return (trade.chart_symbol ?? trade.display_symbol ?? trade.symbol ?? "SPY").replace(
+    /_TEST$/i,
+    "",
+  );
 }
 
 function buildWindow(openedAt: string | null, closedAt: string | null) {
@@ -84,6 +93,26 @@ function mapYahooCandles(payload: YahooChartResponse): TradeJournalCandle[] {
   return candles;
 }
 
+function buildEma(candles: TradeJournalCandle[], period: number): TradeJournalLinePoint[] {
+  if (candles.length === 0) return [];
+
+  const smoothing = 2 / (period + 1);
+  let ema = candles[0].close;
+
+  return candles.map((candle, index) => {
+    if (index === 0) {
+      ema = candle.close;
+    } else {
+      ema = candle.close * smoothing + ema * (1 - smoothing);
+    }
+
+    return {
+      time: candle.time,
+      value: ema,
+    };
+  });
+}
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
@@ -94,7 +123,7 @@ export async function GET(
 
     const tradeResult = await admin
       .from("trade_journal_trades")
-      .select("id, symbol, display_symbol, opened_at, closed_at")
+      .select("id, symbol, display_symbol, chart_symbol, opened_at, closed_at, chart_timeframe, option_symbol")
       .eq("id", id)
       .maybeSingle();
 
@@ -107,7 +136,7 @@ export async function GET(
 
     const trade = tradeResult.data as Pick<
       TradeJournalDetailRow,
-      "id" | "symbol" | "display_symbol" | "opened_at" | "closed_at"
+      "id" | "symbol" | "display_symbol" | "chart_symbol" | "opened_at" | "closed_at" | "chart_timeframe" | "option_symbol"
     > | null;
 
     if (!trade) {
@@ -142,11 +171,18 @@ export async function GET(
       );
     }
 
+    const candles = mapYahooCandles(payload);
+
     return NextResponse.json({
       ok: true,
       symbol,
-      interval: "5m",
-      candles: mapYahooCandles(payload),
+      interval: trade.chart_timeframe ?? "5m",
+      candles,
+      overlays: {
+        ema10: buildEma(candles, 10),
+        ema20: buildEma(candles, 20),
+      },
+      option_symbol: trade.option_symbol ?? null,
       opened_at: trade.opened_at,
       closed_at: trade.closed_at,
     });

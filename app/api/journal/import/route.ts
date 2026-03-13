@@ -9,6 +9,7 @@ type TradeHistoryRow = {
   snapshot_date: string | null;
   trade_day: string | null;
   symbol: string | null;
+  option_symbol?: string | null;
   side: string | null;
   qty: number | string | null;
   entry_price: number | string | null;
@@ -36,6 +37,10 @@ function accountFromSource(source: string | null) {
 }
 
 function displaySymbolFromRow(row: TradeHistoryRow) {
+  return normalizeSymbol(row.symbol);
+}
+
+function chartSymbolFromRow(row: TradeHistoryRow) {
   return normalizeSymbol(row.symbol);
 }
 
@@ -70,6 +75,7 @@ export async function POST() {
           "snapshot_date",
           "trade_day",
           "symbol",
+          "option_symbol",
           "side",
           "qty",
           "entry_price",
@@ -112,6 +118,9 @@ export async function POST() {
         trade_group_key: row.external_trade_id?.trim() || `trade_history:${row.id}`,
         symbol: normalizeSymbol(row.symbol),
         display_symbol: displaySymbolFromRow(row),
+        option_symbol: row.option_symbol ?? null,
+        chart_symbol: chartSymbolFromRow(row),
+        chart_timeframe: "5m",
         asset_type: "option",
         strategy: row.source,
         side: row.side,

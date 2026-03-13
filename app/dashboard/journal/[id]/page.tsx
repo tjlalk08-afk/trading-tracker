@@ -7,6 +7,7 @@ import {
   formatMoney,
   formatPercent,
   type TradeJournalCandle,
+  type TradeJournalLinePoint,
   type TradeJournalDetailRow,
   type TradeJournalNoteRow,
   type TradeJournalScreenshotRow,
@@ -25,6 +26,11 @@ type CandlePayload = {
   symbol?: string;
   interval?: string;
   candles?: TradeJournalCandle[];
+  overlays?: {
+    ema10?: TradeJournalLinePoint[];
+    ema20?: TradeJournalLinePoint[];
+  };
+  option_symbol?: string | null;
   opened_at?: string | null;
   closed_at?: string | null;
   error?: string;
@@ -153,6 +159,8 @@ export default function JournalTradeDetailPage({
   const notes = payload?.notes ?? [];
   const screenshots = payload?.screenshots ?? [];
   const candles = candlePayload?.candles ?? [];
+  const ema10 = candlePayload?.overlays?.ema10 ?? [];
+  const ema20 = candlePayload?.overlays?.ema20 ?? [];
   const candleError =
     candlePayload && !candlePayload.ok
       ? candlePayload.error ?? "Failed to load candles"
@@ -257,6 +265,8 @@ export default function JournalTradeDetailPage({
               candles={candles}
               openedAt={trade.opened_at}
               closedAt={trade.closed_at}
+              ema10={ema10}
+              ema20={ema20}
             />
           </div>
 
@@ -286,6 +296,12 @@ export default function JournalTradeDetailPage({
             </div>
             <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white/75">
               Strategy / Setup: {trade.strategy ?? "-"}
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white/75">
+              Contract: {trade.option_symbol ?? candlePayload?.option_symbol ?? "Underlying only"}
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white/75">
+              Chart timeframe: {trade.chart_timeframe ?? candlePayload?.interval ?? "5m"}
             </div>
             <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white/75">
               Rules Followed: {trade.rules_followed === null ? "-" : trade.rules_followed ? "Yes" : "No"}

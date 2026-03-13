@@ -3,6 +3,7 @@ export type TradeJournalOverviewRow = {
   account: string | null;
   symbol: string | null;
   display_symbol: string | null;
+  option_symbol?: string | null;
   strategy: string | null;
   setup_name: string | null;
   side: string | null;
@@ -31,6 +32,9 @@ export type TradeJournalDetailRow = {
   trade_group_key: string | null;
   symbol: string | null;
   display_symbol: string | null;
+  option_symbol?: string | null;
+  chart_timeframe?: string | null;
+  chart_symbol?: string | null;
   asset_type: string | null;
   strategy: string | null;
   side: string | null;
@@ -78,6 +82,11 @@ export type TradeJournalCandle = {
   low: number;
   close: number;
   volume: number | null;
+};
+
+export type TradeJournalLinePoint = {
+  time: string;
+  value: number;
 };
 
 export type TradeJournalSummary = {

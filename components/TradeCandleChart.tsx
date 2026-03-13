@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { TradeJournalCandle } from "@/lib/tradeJournal";
+import type { TradeJournalCandle, TradeJournalLinePoint } from "@/lib/tradeJournal";
 
 function formatLabel(value: string) {
   const date = new Date(value);
@@ -27,10 +27,14 @@ export default function TradeCandleChart({
   candles,
   openedAt,
   closedAt,
+  ema10 = [],
+  ema20 = [],
 }: {
   candles: TradeJournalCandle[];
   openedAt: string | null;
   closedAt: string | null;
+  ema10?: TradeJournalLinePoint[];
+  ema20?: TradeJournalLinePoint[];
 }) {
   const width = 980;
   const height = 460;
@@ -151,7 +155,7 @@ export default function TradeCandleChart({
           const highY = chart.y(candle.high);
           const lowY = chart.y(candle.low);
           const up = candle.close >= candle.open;
-          const color = up ? "#34d399" : "#f87171";
+          const color = up ? "#14e4ff" : "#ff0bb7";
           const bodyTop = Math.min(openY, closeY);
           const bodyHeight = Math.max(Math.abs(closeY - openY), 1.5);
 
@@ -169,6 +173,28 @@ export default function TradeCandleChart({
             </g>
           );
         })}
+
+        {ema20.length > 1 ? (
+          <polyline
+            fill="none"
+            stroke="rgba(196,181,253,0.8)"
+            strokeWidth="1.35"
+            points={ema20
+              .map((point, index) => `${chart.x(index)},${chart.y(point.value)}`)
+              .join(" ")}
+          />
+        ) : null}
+
+        {ema10.length > 1 ? (
+          <polyline
+            fill="none"
+            stroke="rgba(96,165,250,0.95)"
+            strokeWidth="1.5"
+            points={ema10
+              .map((point, index) => `${chart.x(index)},${chart.y(point.value)}`)
+              .join(" ")}
+          />
+        ) : null}
 
         {candles
           .filter((_, index) => index % Math.max(Math.floor(candles.length / 6), 1) === 0)
@@ -188,6 +214,13 @@ export default function TradeCandleChart({
               </text>
             );
           })}
+
+        <text x={padLeft + 4} y={padTop + 14} fill="rgba(96,165,250,0.95)" fontSize="11">
+          EMA 10
+        </text>
+        <text x={padLeft + 4} y={padTop + 30} fill="rgba(196,181,253,0.82)" fontSize="11">
+          EMA 20
+        </text>
       </svg>
     </div>
   );
