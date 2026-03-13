@@ -32,6 +32,12 @@ type PostedTransactionRow = {
   to_member_name: string | null;
 };
 
+type InvestorClientData = {
+  fundEquity?: number | null;
+  equity?: number | null;
+  totalUnits?: number | null;
+};
+
 function formatDisplayDate(value: string | null | undefined) {
   if (!value) return "—";
 
@@ -67,9 +73,9 @@ export default async function InvestorsPage() {
   const profileRow = profile as ProfileRow | null;
   const isAdmin = profileRow?.role === "admin" && profileRow?.approved === true;
 
-  let initialData: unknown = null;
+  let initialData: InvestorClientData | null = null;
   try {
-    initialData = await getInvestorPnlData();
+    initialData = (await getInvestorPnlData()) as InvestorClientData | null;
   } catch {
     initialData = null;
   }
