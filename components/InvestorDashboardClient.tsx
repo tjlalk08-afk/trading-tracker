@@ -429,11 +429,13 @@ export default function InvestorDashboardClient({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-2.5 xl:grid-cols-12">
-        <div className="xl:col-span-5">
-          <Surface className="p-3.5 sm:p-4">
+      <Surface className="p-3.5 sm:p-4">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+          <div>
             <SectionLabel>Capital Actions</SectionLabel>
-            <div className="mt-1 text-[1.5rem] font-semibold text-white sm:text-[1.7rem]">Capital Actions</div>
+            <div className="mt-1 text-[1.4rem] font-semibold text-white sm:text-[1.6rem]">
+              Capital Actions
+            </div>
             <div className="mt-1 text-sm text-white/55">
               Submit investor requests for deposits, withdrawals, or transfers.
             </div>
@@ -500,9 +502,7 @@ export default function InvestorDashboardClient({
 
                 {activeAction === "Transfer" ? (
                   <label className="block space-y-1.5">
-                    <div className="text-xs uppercase tracking-[0.16em] text-white/45">
-                      Transfer To
-                    </div>
+                    <div className="text-xs uppercase tracking-[0.16em] text-white/45">Transfer To</div>
                     <select
                       value={requestTransferTo}
                       onChange={(e) => setRequestTransferTo(e.target.value)}
@@ -553,15 +553,15 @@ export default function InvestorDashboardClient({
                 </div>
               </form>
             ) : null}
-          </Surface>
-        </div>
+          </div>
 
-        <div className="xl:col-span-7">
-          <Surface className="p-3.5 sm:p-4">
+          <div className="border-t border-white/10 pt-4 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <SectionLabel>Pending Request Queue</SectionLabel>
-                <div className="mt-1 text-[1.5rem] font-semibold text-white sm:text-[1.7rem]">Awaiting Review</div>
+                <div className="mt-1 text-[1.4rem] font-semibold text-white sm:text-[1.6rem]">
+                  Awaiting Review
+                </div>
                 <div className="mt-1 text-sm text-white/55">
                   {isAdmin
                     ? "Pending requests across the fund."
@@ -577,7 +577,7 @@ export default function InvestorDashboardClient({
             <div className="mt-3">
               {pendingRequests.length ? (
                 <div className="space-y-2.5">
-                  {pendingRequests.slice(0, 4).map((request) => (
+                  {pendingRequests.slice(0, 3).map((request) => (
                     <div
                       key={request.id}
                       className="rounded-xl border border-white/10 bg-black/20 px-3.5 py-3"
@@ -604,28 +604,17 @@ export default function InvestorDashboardClient({
 
                           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/55">
                             <span>
-                              Amount:{" "}
-                              <span className="font-medium text-white">{money(request.amount)}</span>
+                              Amount: <span className="font-medium text-white">{money(request.amount)}</span>
                             </span>
                             {request.type === "Transfer" && request.transferTo ? (
                               <span>
-                                To:{" "}
-                                <span className="font-medium text-white">{request.transferTo}</span>
+                                To: <span className="font-medium text-white">{request.transferTo}</span>
                               </span>
                             ) : null}
                             <span>
-                              Created:{" "}
-                              <span className="font-medium text-white">{request.createdAt}</span>
+                              Created: <span className="font-medium text-white">{request.createdAt}</span>
                             </span>
                           </div>
-
-                          {request.note ? (
-                            <div className="mt-2 text-sm text-white/50">{request.note}</div>
-                          ) : null}
-                        </div>
-
-                        <div className="text-xs uppercase tracking-[0.16em] text-white/35">
-                          {isAdmin ? "Admin can review below" : "Admin review only"}
                         </div>
                       </div>
                     </div>
@@ -638,9 +627,9 @@ export default function InvestorDashboardClient({
                 />
               )}
             </div>
-          </Surface>
+          </div>
         </div>
-      </div>
+      </Surface>
 
       <Surface className="overflow-hidden">
         <div className="border-b border-white/10 px-4 py-3.5">

@@ -1,13 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --font-geist-sans:
-    "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial,
-    sans-serif;
-  --font-geist-mono:
-    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  --background: #0b1016;
+  --background-elevated: #121922;
+  --background-panel: #161f2b;
+  --background-panel-strong: #1b2532;
+  --foreground: #edf2f7;
+  --foreground-muted: #9aa6b2;
+  --border: rgba(148, 163, 184, 0.18);
+  --border-strong: rgba(148, 163, 184, 0.28);
+  --accent: #3ca37b;
+  --accent-soft: rgba(60, 163, 123, 0.16);
+  --accent-strong: #8fd6b7;
+  --success: #34d399;
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --font-geist-sans: var(--font-ui-sans), "Aptos", "Segoe UI", sans-serif;
+  --font-geist-mono: var(--font-ui-mono), "Cascadia Mono", "Consolas", monospace;
 }
 
 @theme inline {
@@ -17,15 +26,48 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background:
+    radial-gradient(circle at top, rgba(60, 163, 123, 0.08), transparent 22%),
+    linear-gradient(180deg, #0b1016 0%, #0e141d 54%, #0a0f15 100%);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans);
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: rgba(60, 163, 123, 0.28);
+  color: #f8fafc;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(15, 23, 42, 0.55);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.28);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(60, 163, 123, 0.38);
+}
+
+.font-mono-metric {
+  font-family: var(--font-geist-mono);
+  letter-spacing: -0.02em;
 }

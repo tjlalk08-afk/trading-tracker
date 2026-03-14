@@ -34,13 +34,11 @@ type ClosedTrade = {
 
 type DashboardData = {
   updated?: string | null;
-
   cash?: number | string | null;
   equity?: number | string | null;
   realized_pl?: number | string | null;
   open_pl?: number | string | null;
   total_pl?: number | string | null;
-
   live_cash?: number | string | null;
   live_equity?: number | string | null;
   live_realized_pl?: number | string | null;
@@ -49,7 +47,6 @@ type DashboardData = {
   live_open_pnl?: number | string | null;
   live_total_pl?: number | string | null;
   live_total_pnl?: number | string | null;
-
   test_cash?: number | string | null;
   test_equity?: number | string | null;
   test_realized_pl?: number | string | null;
@@ -58,7 +55,6 @@ type DashboardData = {
   test_open_pnl?: number | string | null;
   test_total_pl?: number | string | null;
   test_total_pnl?: number | string | null;
-
   positions?: Position[];
   live_positions?: Position[] | Record<string, Position>;
   positions_live?: Position[] | Record<string, Position>;
@@ -143,10 +139,8 @@ function normalizeDashboardPayload(json: DashboardResponse): DashboardData {
 
   const liveRealized =
     payload.live_realized_pl ?? payload.live_realized_pnl ?? payload.realized_pl;
-  const liveOpen =
-    payload.live_open_pl ?? payload.live_open_pnl ?? payload.open_pl;
-  const liveTotal =
-    payload.live_total_pl ?? payload.live_total_pnl ?? payload.total_pl;
+  const liveOpen = payload.live_open_pl ?? payload.live_open_pnl ?? payload.open_pl;
+  const liveTotal = payload.live_total_pl ?? payload.live_total_pnl ?? payload.total_pl;
   const testRealized = payload.test_realized_pl ?? payload.test_realized_pnl ?? 0;
   const testOpen = payload.test_open_pl ?? payload.test_open_pnl ?? 0;
   const testTotal = payload.test_total_pl ?? payload.test_total_pnl ?? 0;
@@ -166,9 +160,7 @@ function normalizeDashboardPayload(json: DashboardResponse): DashboardData {
 }
 
 function asPositionArray(value: unknown): Position[] {
-  if (Array.isArray(value)) {
-    return value;
-  }
+  if (Array.isArray(value)) return value;
 
   if (typeof value === "object" && value !== null) {
     return Object.values(value).filter(
@@ -225,12 +217,10 @@ function StatCard({
   tone?: string;
 }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-      <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
-        {title}
-      </div>
-      <div className={`mt-2 text-2xl font-semibold sm:text-3xl ${tone}`}>{value}</div>
-      {sub ? <div className="mt-2 text-xs text-white/50 sm:text-sm">{sub}</div> : null}
+    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+      <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">{title}</div>
+      <div className={`mt-2 text-2xl font-semibold ${tone}`}>{value}</div>
+      {sub ? <div className="mt-1.5 text-xs text-white/50">{sub}</div> : null}
     </div>
   );
 }
@@ -245,13 +235,9 @@ function CompactMetric({
   tone?: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
-      <div className="text-[10px] uppercase tracking-[0.18em] text-white/45">
-        {title}
-      </div>
-      <div className={`mt-1 text-base font-semibold sm:text-lg xl:text-xl ${tone}`}>
-        {value}
-      </div>
+    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
+      <div className="text-[10px] uppercase tracking-[0.18em] text-white/45">{title}</div>
+      <div className={`mt-1 text-base font-semibold ${tone}`}>{value}</div>
     </div>
   );
 }
@@ -268,19 +254,15 @@ function SectionShell({
   children: ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:rounded-[28px]">
-      <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-3 md:flex-row md:items-center md:justify-between sm:px-5 sm:py-4">
+    <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+      <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white sm:text-2xl">{title}</h2>
-          {subtitle ? (
-            <p className="mt-1 text-sm text-white/45">{subtitle}</p>
-          ) : null}
+          <h2 className="text-lg font-semibold text-white sm:text-xl">{title}</h2>
+          {subtitle ? <p className="mt-1 text-sm text-white/45">{subtitle}</p> : null}
         </div>
-        {right ? (
-          <div className="flex flex-wrap items-center gap-2">{right}</div>
-        ) : null}
+        {right ? <div className="flex flex-wrap items-center gap-2">{right}</div> : null}
       </div>
-      <div className="px-4 py-3 sm:px-5 sm:py-4">{children}</div>
+      <div className="px-4 py-3">{children}</div>
     </div>
   );
 }
@@ -296,16 +278,16 @@ function TradeCard({
   const symbol = row.display_symbol ?? row.symbol ?? "—";
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:rounded-2xl sm:p-4">
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sm font-semibold text-white sm:h-11 sm:w-11 sm:rounded-2xl">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sm font-semibold text-white">
             {symbol.slice(0, 2).toUpperCase()}
           </div>
 
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="text-base font-semibold text-white sm:text-lg">{symbol}</div>
+              <div className="text-base font-semibold text-white">{symbol}</div>
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/65">
                 {row.side ?? "—"}
               </span>
@@ -317,45 +299,29 @@ function TradeCard({
               </span>
             </div>
 
-            <div className="mt-1 text-sm text-white/45">
-              Closed {formatCompactTime(row.closed_at)}
-            </div>
+            <div className="mt-1 text-sm text-white/45">Closed {formatCompactTime(row.closed_at)}</div>
           </div>
         </div>
 
         <div className="text-left sm:text-right">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">
-            Realized
-          </div>
-          <div className={`mt-1 text-lg font-semibold sm:text-xl ${perfTone(realized)}`}>
-            {signedMoney(realized)}
-          </div>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">Realized</div>
+          <div className={`mt-1 text-lg font-semibold ${perfTone(realized)}`}>{signedMoney(realized)}</div>
         </div>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2.5 md:grid-cols-4">
         <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
-          <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">
-            Entry
-          </div>
-          <div className="mt-1 text-sm font-medium text-white">
-            {money(row.entry_price)}
-          </div>
+          <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">Entry</div>
+          <div className="mt-1 text-sm font-medium text-white">{money(row.entry_price)}</div>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
-          <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">
-            Exit
-          </div>
-          <div className="mt-1 text-sm font-medium text-white">
-            {money(row.exit_price)}
-          </div>
+          <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">Exit</div>
+          <div className="mt-1 text-sm font-medium text-white">{money(row.exit_price)}</div>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 md:col-span-2">
-          <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">
-            Option Symbol
-          </div>
+          <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">Option Symbol</div>
           <div className="mt-1 break-all text-sm font-medium text-white/75">
             {row.option_symbol ?? "—"}
           </div>
@@ -418,10 +384,7 @@ export default function LivePage() {
     };
   }, []);
 
-  const positions = useMemo(
-    () => livePositionsFromPayload(data),
-    [data],
-  );
+  const positions = useMemo(() => livePositionsFromPayload(data), [data]);
 
   const closedLive = useMemo(() => {
     const rows = [...closedLiveTradesFromPayload(data)];
@@ -443,15 +406,25 @@ export default function LivePage() {
     return rows;
   }, [data]);
 
+  const recentTrades = useMemo(
+    () =>
+      [...closedLive.map((row) => ({ row, mode: "live" as const })), ...closedTest.map((row) => ({ row, mode: "test" as const }))]
+        .sort(
+          (a, b) =>
+            new Date(b.row.closed_at ?? 0).getTime() -
+            new Date(a.row.closed_at ?? 0).getTime(),
+        )
+        .slice(0, 8),
+    [closedLive, closedTest],
+  );
+
   if (loading && !data) {
     return (
       <div className="min-h-screen bg-black text-white">
         <div className="mx-auto w-full max-w-7xl px-6 py-16">
           <div className="mx-auto flex max-w-md flex-col items-center justify-center text-center">
             <div className="mb-4 h-10 w-10 animate-pulse rounded-full border border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_30px_rgba(52,211,153,0.18)]" />
-            <div className="text-base font-medium text-white">
-              Loading live monitor
-            </div>
+            <div className="text-base font-medium text-white">Loading live monitor</div>
             <div className="mt-2 text-sm text-white/45">
               Pulling the brother dashboard and opening the live feed.
             </div>
@@ -480,26 +453,26 @@ export default function LivePage() {
           />
         </div>
 
-        <div className="relative mx-auto w-full max-w-7xl px-4 pb-8 pt-4 sm:px-5 sm:pb-10 sm:pt-6 md:px-6 md:pt-8">
+        <div className="relative mx-auto w-full max-w-7xl px-4 pb-6 pt-4 sm:px-5 sm:pb-8 sm:pt-5 md:px-6 md:pt-6">
           <section className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:rounded-[30px]">
-            <div className="border-b border-white/10 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
-              <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                <div className="max-w-2xl">
-                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-emerald-300">
+            <div className="border-b border-white/10 px-4 py-3 sm:px-6 sm:py-4 md:px-8">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+                <div className="max-w-3xl">
+                  <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-emerald-300">
                     <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
                     Live Monitor
                   </div>
 
-                  <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">
-                    Live
-                  </h1>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h1 className="text-[2rem] font-semibold tracking-tight text-white sm:text-[2.4rem]">
+                      Live
+                    </h1>
+                    <div className="text-sm text-white/50">
+                      Feed health, exposure, and recent fills in one view.
+                    </div>
+                  </div>
 
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-white/60 md:text-[15px]">
-                    Polls the brother dashboard every second while this page is
-                    open, including current positions and recently closed trades.
-                  </p>
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-white/45 sm:mt-5 sm:gap-3 sm:text-xs">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-white/45 sm:text-xs">
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
                       Polling every 1 second
                     </span>
@@ -507,25 +480,27 @@ export default function LivePage() {
                       Last poll: {formatTimestamp(data?.updated)}
                     </span>
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
-                      {closedLive.length} live closed · {closedTest.length} test
-                      closed
+                      {positions.length} open
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
+                      {closedLive.length} live closed · {closedTest.length} test closed
                     </span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
+            <div className="px-4 py-4 sm:px-6 sm:py-5 md:px-8">
               {error ? (
-                <div className="mb-6 rounded-3xl border border-red-500/20 bg-red-500/8 p-6 text-center">
+                <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/8 p-4 text-center">
                   <div className="text-sm font-medium uppercase tracking-[0.2em] text-red-300">
                     Live Feed Error
                   </div>
-                  <div className="mt-3 text-base text-red-200">{error}</div>
+                  <div className="mt-2 text-sm text-red-200">{error}</div>
                 </div>
               ) : null}
 
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-5">
                 <StatCard title="Cash" value={money(data?.cash)} />
                 <StatCard title="Equity" value={money(data?.equity)} />
                 <StatCard
@@ -545,75 +520,108 @@ export default function LivePage() {
                 />
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:mt-6 xl:gap-4">
+              <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-[1.15fr_0.85fr]">
                 <SectionShell
-                  title="Live Account"
-                  subtitle="Current live account metrics."
+                  title="Account Snapshot"
+                  subtitle="Live and test balances in one compact comparison."
                   right={
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/45">
-                      {closedLive.length} closed trades
-                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300">
+                        Live
+                      </span>
+                      <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-300">
+                        Test
+                      </span>
+                    </div>
                   }
                 >
-                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                    <CompactMetric title="Cash" value={money(data?.live_cash)} />
-                    <CompactMetric
-                      title="Equity"
-                      value={money(data?.live_equity)}
-                    />
-                    <CompactMetric
-                      title="Realized"
-                      value={signedMoney(data?.live_realized_pl)}
-                      tone={perfTone(data?.live_realized_pl)}
-                    />
-                    <CompactMetric
-                      title="Open"
-                      value={signedMoney(data?.live_open_pl)}
-                      tone={perfTone(data?.live_open_pl)}
-                    />
-                    <CompactMetric
-                      title="Total"
-                      value={signedMoney(data?.live_total_pl)}
-                      tone={perfTone(data?.live_total_pl)}
-                    />
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className="text-sm font-medium text-white">Live Account</div>
+                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/50">
+                          {closedLive.length} closed
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                        <CompactMetric title="Cash" value={money(data?.live_cash)} />
+                        <CompactMetric title="Equity" value={money(data?.live_equity)} />
+                        <CompactMetric
+                          title="Realized"
+                          value={signedMoney(data?.live_realized_pl)}
+                          tone={perfTone(data?.live_realized_pl)}
+                        />
+                        <CompactMetric
+                          title="Open"
+                          value={signedMoney(data?.live_open_pl)}
+                          tone={perfTone(data?.live_open_pl)}
+                        />
+                        <CompactMetric
+                          title="Total"
+                          value={signedMoney(data?.live_total_pl)}
+                          tone={perfTone(data?.live_total_pl)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className="text-sm font-medium text-white">Test Account</div>
+                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/50">
+                          {closedTest.length} closed
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                        <CompactMetric title="Cash" value={money(data?.test_cash)} />
+                        <CompactMetric title="Equity" value={money(data?.test_equity)} />
+                        <CompactMetric
+                          title="Realized"
+                          value={signedMoney(data?.test_realized_pl)}
+                          tone={perfTone(data?.test_realized_pl)}
+                        />
+                        <CompactMetric
+                          title="Open"
+                          value={signedMoney(data?.test_open_pl)}
+                          tone={perfTone(data?.test_open_pl)}
+                        />
+                        <CompactMetric
+                          title="Total"
+                          value={signedMoney(data?.test_total_pl)}
+                          tone={perfTone(data?.test_total_pl)}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </SectionShell>
 
                 <SectionShell
-                  title="Test Account"
-                  subtitle="Current shadow account metrics."
+                  title="Recent Closed Trades"
+                  subtitle="Latest completed fills across both feeds."
                   right={
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/45">
-                      {closedTest.length} closed trades
+                      {recentTrades.length} shown
                     </span>
                   }
                 >
-                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                    <CompactMetric title="Cash" value={money(data?.test_cash)} />
-                    <CompactMetric
-                      title="Equity"
-                      value={money(data?.test_equity)}
-                    />
-                    <CompactMetric
-                      title="Realized"
-                      value={signedMoney(data?.test_realized_pl)}
-                      tone={perfTone(data?.test_realized_pl)}
-                    />
-                    <CompactMetric
-                      title="Open"
-                      value={signedMoney(data?.test_open_pl)}
-                      tone={perfTone(data?.test_open_pl)}
-                    />
-                    <CompactMetric
-                      title="Total"
-                      value={signedMoney(data?.test_total_pl)}
-                      tone={perfTone(data?.test_total_pl)}
-                    />
-                  </div>
+                  {recentTrades.length === 0 ? (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-white/55">
+                      No completed live or test trades yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {recentTrades.map(({ row, mode }, idx) => (
+                        <TradeCard
+                          key={row.trade_id ?? `${row.option_symbol ?? row.symbol ?? mode}-${idx}`}
+                          row={row}
+                          mode={mode}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </SectionShell>
               </div>
 
-              <div className="mt-4 sm:mt-6">
+              <div className="mt-4">
                 <SectionShell
                   title="Open Positions"
                   subtitle="Currently open positions from the live feed."
@@ -624,30 +632,24 @@ export default function LivePage() {
                   }
                 >
                   {positions.length === 0 ? (
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-6 text-sm text-white/55">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-white/55">
                       No open positions right now.
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                       {positions.map((row, idx) => {
                         const openPl = toNumber(row.open_pnl ?? row.open_pl);
-                        const openPct = toNumber(
-                          row.open_pnl_pct ?? row.open_pl_pct,
-                        );
+                        const openPct = toNumber(row.open_pnl_pct ?? row.open_pl_pct);
 
                         return (
                           <div
-                            key={`${
-                              row.option_symbol ?? row.symbol ?? "pos"
-                            }-${idx}`}
+                            key={`${row.option_symbol ?? row.symbol ?? "pos"}-${idx}`}
                             className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
                           >
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                               <div className="flex items-start gap-3">
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-sm font-semibold text-white">
-                                  {(row.display_symbol ?? row.symbol ?? "—")
-                                    .slice(0, 2)
-                                    .toUpperCase()}
+                                  {(row.display_symbol ?? row.symbol ?? "—").slice(0, 2).toUpperCase()}
                                 </div>
 
                                 <div>
@@ -663,50 +665,30 @@ export default function LivePage() {
                                     </span>
                                   </div>
 
-                                  <div className="mt-1 break-all text-sm text-white/45">
-                                    {row.option_symbol ?? "—"}
-                                  </div>
+                                  <div className="mt-1 break-all text-sm text-white/45">{row.option_symbol ?? "—"}</div>
                                 </div>
                               </div>
 
                               <div className="text-left sm:text-right">
-                                <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">
-                                  Open P/L
-                                </div>
-                                <div
-                                  className={`mt-1 text-xl font-semibold ${perfTone(
-                                    openPl,
-                                  )}`}
-                                >
+                                <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">Open P/L</div>
+                                <div className={`mt-1 text-xl font-semibold ${perfTone(openPl)}`}>
                                   {signedMoney(openPl)}
                                 </div>
-                                <div
-                                  className={`mt-1 text-sm ${perfTone(openPct)}`}
-                                >
-                                  {`${openPct > 0 ? "+" : ""}${openPct.toFixed(
-                                    2,
-                                  )}%`}
+                                <div className={`mt-1 text-sm ${perfTone(openPct)}`}>
+                                  {`${openPct > 0 ? "+" : ""}${openPct.toFixed(2)}%`}
                                 </div>
                               </div>
                             </div>
 
                             <div className="mt-3 grid grid-cols-2 gap-2.5">
                               <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
-                                <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">
-                                  Entry
-                                </div>
-                                <div className="mt-1 text-sm font-medium text-white">
-                                  {money(row.entry_price)}
-                                </div>
+                                <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">Entry</div>
+                                <div className="mt-1 text-sm font-medium text-white">{money(row.entry_price)}</div>
                               </div>
 
                               <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
-                                <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">
-                                  Mark
-                                </div>
-                                <div className="mt-1 text-sm font-medium text-white">
-                                  {money(row.mark)}
-                                </div>
+                                <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">Mark</div>
+                                <div className="mt-1 text-sm font-medium text-white">{money(row.mark)}</div>
                               </div>
                             </div>
                           </div>
@@ -717,64 +699,8 @@ export default function LivePage() {
                 </SectionShell>
               </div>
 
-              <div className="mt-4 space-y-3 sm:mt-6 sm:space-y-4">
-                <SectionShell
-                  title="Completed Live Trades"
-                  subtitle="Recently closed live trades from the bot feed."
-                  right={
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/45">
-                      {closedLive.length} live closed
-                    </span>
-                  }
-                >
-                  {closedLive.length === 0 ? (
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-6 text-sm text-white/55">
-                      No completed live trades yet.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                      {closedLive.map((row, idx) => (
-                        <TradeCard
-                          key={
-                            row.trade_id ??
-                            `${row.option_symbol ?? row.symbol ?? "live"}-${idx}`
-                          }
-                          row={row}
-                          mode="live"
-                        />
-                      ))}
-                    </div>
-                  )}
-                </SectionShell>
-
-                <SectionShell
-                  title="Completed Test Trades"
-                  subtitle="Recently closed shadow trades from the bot feed."
-                  right={
-                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/45">
-                      {closedTest.length} test closed
-                    </span>
-                  }
-                >
-                  {closedTest.length === 0 ? (
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-6 text-sm text-white/55">
-                      No completed test trades yet.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                      {closedTest.map((row, idx) => (
-                        <TradeCard
-                          key={
-                            row.trade_id ??
-                            `${row.option_symbol ?? row.symbol ?? "test"}-${idx}`
-                          }
-                          row={row}
-                          mode="test"
-                        />
-                      ))}
-                    </div>
-                  )}
-                </SectionShell>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,18,25,0.75),rgba(8,10,15,0.9))] px-4 py-2.5 text-xs text-white/50">
+                Live refreshes every second while this page is open. Use Compare for saved-account drift and Overview for investor-facing summaries.
               </div>
             </div>
           </section>

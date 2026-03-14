@@ -357,23 +357,6 @@ function SectionLabel({ children }: { children: ReactNode }) {
   return <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">{children}</div>;
 }
 
-function InfoRow({
-  label,
-  value,
-  valueClass = "text-white",
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-white/8 py-2 last:border-b-0">
-      <div className="text-sm text-white/45">{label}</div>
-      <div className={`text-right text-sm font-medium ${valueClass}`}>{value}</div>
-    </div>
-  );
-}
-
 function RangeButton({
   active,
   children,
@@ -983,7 +966,7 @@ export default function ComparePage() {
         <>
           <HeroBanner headline={hero.headline} detail={hero.detail} toneClass={hero.toneClass} />
 
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
             <GapCard
               title="Equity Gap"
               value={gapHeadline(latestGaps.equityGap)}
@@ -1010,202 +993,149 @@ export default function ComparePage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
-            <CompareAccountPanel
-              title="Live"
-              subtitle="Latest saved live snapshot."
-              badge="Live"
-              badgeClass="border-emerald-400/20 bg-emerald-500/12 text-emerald-300"
-              equity={latest.live_equity}
-              realized={latest.live_realized_pl}
-              open={latest.live_open_pl}
-              total={latest.live_total_pl}
-              cash={latest.live_cash}
-            />
-
-            <CompareAccountPanel
-              title="Test"
-              subtitle="Latest saved test snapshot."
-              badge="Test"
-              badgeClass="border-cyan-400/20 bg-cyan-500/12 text-cyan-300"
-              equity={latest.test_equity}
-              realized={latest.test_realized_pl}
-              open={latest.test_open_pl}
-              total={latest.test_total_pl}
-              cash={latest.test_cash}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-            <GapCard
-              title="Days Tracked"
-              value={String(daysTracked)}
-              support="Unique saved days available for comparison"
-            />
-            <GapCard
-              title="Cash Gap"
-              value={gapHeadline(latestGaps.cashGap)}
-              support={gapSupport(latestGaps.cashGap, `${money(0)} difference`)}
-              tone={pnlTextClass(latestGaps.cashGap)}
-            />
-            <GapCard
-              title="Live Max Drawdown"
-              value={isFlatish(liveDrawdown.amount) ? "Steady" : signedMoney(-liveDrawdown.amount)}
-              support={
-                isFlatish(liveDrawdown.amount)
-                  ? "No drawdown across saved days"
-                  : signedPct(-liveDrawdown.pct)
-              }
-              tone={isFlatish(liveDrawdown.amount) ? "text-white" : "text-red-300"}
-            />
-            <GapCard
-              title="Test Max Drawdown"
-              value={isFlatish(testDrawdown.amount) ? "Steady" : signedMoney(-testDrawdown.amount)}
-              support={
-                isFlatish(testDrawdown.amount)
-                  ? "No drawdown across saved days"
-                  : signedPct(-testDrawdown.pct)
-              }
-              tone={isFlatish(testDrawdown.amount) ? "text-white" : "text-red-300"}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 xl:grid-cols-12">
-            <div className="xl:col-span-8">
-              <Surface className="p-3.5">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <SectionLabel>Comparison Trend</SectionLabel>
-                    <div className="mt-1 text-[1.8rem] font-semibold text-white">
-                      Daily Live vs Test Equity
-                    </div>
-                    <div className="mt-1 text-sm text-white/55">
-                      One saved point per day using the latest snapshot captured for each day.
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <LegendPill colorClass="bg-emerald-400" label="Live" value={money(chartSummary.liveCurrent)} />
-                    <LegendPill colorClass="bg-cyan-400" label="Test" value={money(chartSummary.testCurrent)} />
-                  </div>
+          <Surface className="p-3.5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <SectionLabel>Comparison Snapshot</SectionLabel>
+                <div className="mt-1 text-[1.65rem] font-semibold text-white">
+                  Live vs Test at a Glance
                 </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-                  <BriefStat label="Current Gap" value={signedMoney(chartSummary.gap)} tone={pnlTextClass(chartSummary.gap)} />
-                  <BriefStat
-                    label="Leader"
-                    value={comparisonLeader}
-                    tone={
-                      comparisonLeader === "Live"
-                        ? "text-emerald-300"
-                        : comparisonLeader === "Test"
-                        ? "text-cyan-300"
-                        : "text-white"
-                    }
-                  />
-                  <BriefStat label="Avg Equity Gap" value={money(avgEquityGap)} />
-                  <BriefStat label="Max Equity Gap" value={money(maxEquityGap)} />
+                <div className="mt-1 text-sm text-white/55">
+                  Saved-account alignment, daily curve, and recent drift without the duplicate side brief.
                 </div>
+              </div>
 
-                <div className="mt-3 rounded-2xl border border-white/10 bg-black/10 p-2">
-                  <CompareEquityChart rows={dailyRows} />
-                </div>
-              </Surface>
+              <div
+                className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.18em] ${freshness.badgeClass}`}
+              >
+                {freshness.label}
+              </div>
             </div>
 
-            <div className="xl:col-span-4">
-              <Surface className="h-full p-3.5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <SectionLabel>Summary</SectionLabel>
-                    <div className="mt-1 text-[1.8rem] font-semibold text-white">Compare Brief</div>
-                    <div className="mt-1 text-sm text-white/55">
-                      Quick read on freshness, gaps, and recent day-by-day alignment.
-                    </div>
-                  </div>
-
-                  <div
-                    className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.18em] ${freshness.badgeClass}`}
-                  >
-                    {freshness.label}
-                  </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  <BriefStat label="Status" value={freshness.label} />
-                  <BriefStat
-                    label="Leader"
-                    value={comparisonLeader}
-                    tone={
-                      comparisonLeader === "Live"
-                        ? "text-emerald-300"
-                        : comparisonLeader === "Test"
-                        ? "text-cyan-300"
-                        : "text-white"
-                    }
-                  />
-                  <BriefStat
-                    label="Gap"
-                    value={isFlatish(latestGaps.equityGap) ? "Tight" : "Open"}
-                    tone={isFlatish(latestGaps.equityGap) ? "text-white" : "text-amber-300"}
-                  />
-                </div>
-
-                <div className="mt-3">
-                  <InfoRow label="Last saved" value={snapshotAge} />
-                  <InfoRow label="Days tracked" value={String(daysTracked)} />
-                  <InfoRow label="Avg equity gap" value={money(avgEquityGap)} />
-                  <InfoRow
-                    label="Current total gap"
-                    value={signedMoney(latestGaps.totalGap)}
-                    valueClass={pnlTextClass(latestGaps.totalGap)}
-                  />
-                </div>
-
-                <div className="mt-3 border-t border-white/10 pt-3">
-                  <SectionLabel>Recent Days</SectionLabel>
-                  <div className="mt-2.5 space-y-2">
-                    {recentDays.length ? (
-                      recentDays.map((row) => {
-                        const gap = row.liveEquity - row.testEquity;
-
-                        return (
-                          <div
-                            key={row.dayKey}
-                            className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="text-sm font-medium text-white">{row.label}</div>
-                                <div className="text-xs text-white/45">{timeAgo(row.snapshotTs)}</div>
-                              </div>
-
-                              <div className={`text-sm font-medium ${pnlTextClass(gap)}`}>
-                                {signedMoney(gap)}
-                              </div>
-                            </div>
-
-                            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                              <div className="rounded-lg border border-white/10 bg-black/20 px-2.5 py-2">
-                                <div className="uppercase tracking-[0.16em] text-emerald-300/80">Live</div>
-                                <div className="mt-1 font-medium text-white/85">{money(row.liveEquity)}</div>
-                              </div>
-                              <div className="rounded-lg border border-white/10 bg-black/20 px-2.5 py-2">
-                                <div className="uppercase tracking-[0.16em] text-cyan-300/80">Test</div>
-                                <div className="mt-1 font-medium text-white/85">{money(row.testEquity)}</div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="text-sm text-white/50">No recent daily comparison yet.</div>
-                    )}
-                  </div>
-                </div>
-              </Surface>
+            <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+              <BriefStat label="Days Tracked" value={String(daysTracked)} />
+              <BriefStat label="Last Saved" value={snapshotAge} />
+              <BriefStat
+                label="Leader"
+                value={comparisonLeader}
+                tone={
+                  comparisonLeader === "Live"
+                    ? "text-emerald-300"
+                    : comparisonLeader === "Test"
+                    ? "text-cyan-300"
+                    : "text-white"
+                }
+              />
+              <BriefStat
+                label="Cash Gap"
+                value={signedMoney(latestGaps.cashGap)}
+                tone={pnlTextClass(latestGaps.cashGap)}
+              />
             </div>
-          </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
+              <CompareAccountPanel
+                title="Live"
+                subtitle="Latest saved live snapshot."
+                badge="Live"
+                badgeClass="border-emerald-400/20 bg-emerald-500/12 text-emerald-300"
+                equity={latest.live_equity}
+                realized={latest.live_realized_pl}
+                open={latest.live_open_pl}
+                total={latest.live_total_pl}
+                cash={latest.live_cash}
+              />
+
+              <CompareAccountPanel
+                title="Test"
+                subtitle="Latest saved test snapshot."
+                badge="Test"
+                badgeClass="border-cyan-400/20 bg-cyan-500/12 text-cyan-300"
+                equity={latest.test_equity}
+                realized={latest.test_realized_pl}
+                open={latest.test_open_pl}
+                total={latest.test_total_pl}
+                cash={latest.test_cash}
+              />
+            </div>
+
+            <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <SectionLabel>Comparison Trend</SectionLabel>
+                <div className="mt-1 text-[1.5rem] font-semibold text-white">
+                  Daily Live vs Test Equity
+                </div>
+                <div className="mt-1 text-sm text-white/55">
+                  One saved point per day using the latest snapshot captured for each day.
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <LegendPill colorClass="bg-emerald-400" label="Live" value={money(chartSummary.liveCurrent)} />
+                <LegendPill colorClass="bg-cyan-400" label="Test" value={money(chartSummary.testCurrent)} />
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+              <BriefStat label="Current Gap" value={signedMoney(chartSummary.gap)} tone={pnlTextClass(chartSummary.gap)} />
+              <BriefStat label="Avg Equity Gap" value={money(avgEquityGap)} />
+              <BriefStat label="Max Equity Gap" value={money(maxEquityGap)} />
+              <BriefStat
+                label="Drawdown Read"
+                value={
+                  isFlatish(liveDrawdown.amount) && isFlatish(testDrawdown.amount)
+                    ? "Steady"
+                    : "Watching"
+                }
+                tone={
+                  isFlatish(liveDrawdown.amount) && isFlatish(testDrawdown.amount)
+                    ? "text-white"
+                    : "text-amber-300"
+                }
+              />
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-white/10 bg-black/10 p-2">
+              <CompareEquityChart rows={dailyRows} />
+            </div>
+
+            {recentDays.length ? (
+              <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-3">
+                {recentDays.slice(0, 3).map((row) => {
+                  const gap = row.liveEquity - row.testEquity;
+
+                  return (
+                    <div
+                      key={row.dayKey}
+                      className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-medium text-white">{row.label}</div>
+                          <div className="text-xs text-white/45">{timeAgo(row.snapshotTs)}</div>
+                        </div>
+
+                        <div className={`text-sm font-medium ${pnlTextClass(gap)}`}>
+                          {signedMoney(gap)}
+                        </div>
+                      </div>
+
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                        <div className="rounded-lg border border-white/10 bg-black/20 px-2.5 py-2">
+                          <div className="uppercase tracking-[0.16em] text-emerald-300/80">Live</div>
+                          <div className="mt-1 font-medium text-white/85">{money(row.liveEquity)}</div>
+                        </div>
+                        <div className="rounded-lg border border-white/10 bg-black/20 px-2.5 py-2">
+                          <div className="uppercase tracking-[0.16em] text-cyan-300/80">Test</div>
+                          <div className="mt-1 font-medium text-white/85">{money(row.testEquity)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+          </Surface>
 
           <Surface className="p-3.5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1253,8 +1183,8 @@ export default function ComparePage() {
             </div>
 
             {tradeHistoryOpen ? (
-              <div className="mt-4 grid grid-cols-1 gap-2 xl:grid-cols-12">
-                <div className="xl:col-span-8">
+              <div className="mt-4">
+                <div>
                   <Surface className="p-3.5">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div>
@@ -1358,74 +1288,6 @@ export default function ComparePage() {
                           )}
                         </tbody>
                       </table>
-                    </div>
-                  </Surface>
-                </div>
-
-                <div className="xl:col-span-4">
-                  <Surface className="h-full p-3.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <SectionLabel>Trade Summary</SectionLabel>
-                        <div className="mt-1 text-[1.55rem] font-semibold text-white">Trading Brief</div>
-                        <div className="mt-1 text-sm text-white/55">
-                          Quick read on trade count and realized edge.
-                        </div>
-                      </div>
-
-                      <div
-                        className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.18em] ${
-                          isFlatish(tradeGapSummary.netGap)
-                            ? "border-white/10 bg-white/[0.05] text-white/70"
-                            : tradeGapSummary.netGap > 0
-                            ? "border-emerald-400/20 bg-emerald-500/12 text-emerald-300"
-                            : "border-cyan-400/20 bg-cyan-500/12 text-cyan-300"
-                        }`}
-                      >
-                        {isFlatish(tradeGapSummary.netGap)
-                          ? "Even"
-                          : tradeGapSummary.netGap > 0
-                          ? "Live Edge"
-                          : "Test Edge"}
-                      </div>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-3 gap-2">
-                      <BriefStat label="Trades" value={String(filteredTrades.length)} />
-                      <BriefStat
-                        label="Net Gap"
-                        value={signedMoney(tradeGapSummary.netGap)}
-                        tone={pnlTextClass(tradeGapSummary.netGap)}
-                      />
-                      <BriefStat
-                        label="WR Gap"
-                        value={signedPct(tradeGapSummary.winRateGap)}
-                        tone={pnlTextClass(tradeGapSummary.winRateGap)}
-                      />
-                    </div>
-
-                    <div className="mt-3">
-                      <InfoRow label="Range" value={tradeRange === "1Y" ? "1 Year" : tradeRange} />
-                      <InfoRow
-                        label="Source filter"
-                        value={
-                          tradeSource === "ALL"
-                            ? "All"
-                            : tradeSource === "LIVE"
-                            ? "Live only"
-                            : "Test only"
-                        }
-                      />
-                      <InfoRow
-                        label="Live realized"
-                        value={signedMoney(liveTradeSummary.net)}
-                        valueClass={pnlTextClass(liveTradeSummary.net)}
-                      />
-                      <InfoRow
-                        label="Test realized"
-                        value={signedMoney(testTradeSummary.net)}
-                        valueClass={pnlTextClass(testTradeSummary.net)}
-                      />
                     </div>
                   </Surface>
                 </div>

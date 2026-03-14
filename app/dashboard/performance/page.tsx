@@ -63,16 +63,6 @@ function getPerformanceTone(value: number) {
   return "text-white";
 }
 
-function getBadgeTone(value: number) {
-  if (value > 0) {
-    return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
-  }
-  if (value < 0) {
-    return "border-red-500/20 bg-red-500/10 text-red-300";
-  }
-  return "border-white/10 bg-white/5 text-white/70";
-}
-
 function getLocalDayKey(dateStr: string) {
   const d = new Date(dateStr);
   const y = d.getFullYear();
@@ -331,27 +321,26 @@ export default function PerformancePage() {
           />
         </div>
 
-        <div className="relative mx-auto w-full max-w-7xl px-4 pb-8 pt-4 sm:px-5 sm:pb-10 sm:pt-6 md:px-6 md:pt-8">
+        <div className="relative mx-auto w-full max-w-7xl px-4 pb-6 pt-4 sm:px-5 sm:pb-8 sm:pt-5 md:px-6 md:pt-6">
           <section className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:rounded-[30px]">
-            <div className="border-b border-white/10 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
-              <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="border-b border-white/10 px-4 py-3 sm:px-6 sm:py-4 md:px-8">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
                 <div className="max-w-2xl">
-                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-emerald-300">
+                  <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-emerald-300">
                     <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
                     Snapshot Performance
                   </div>
 
-                  <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">
-                    Performance
-                  </h1>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h1 className="text-[2rem] font-semibold tracking-tight sm:text-[2.35rem]">
+                      Performance
+                    </h1>
+                    <div className="text-sm text-white/50">
+                      Snapshot-based trend read for live equity and test drift.
+                    </div>
+                  </div>
 
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-white/60 md:text-[15px]">
-                    Daily trend view built from saved Supabase snapshots. Live
-                    equity is the primary signal, while test daily P/L is shown
-                    as a secondary overlay when movement exists.
-                  </p>
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-white/45 sm:mt-5 sm:gap-3 sm:text-xs">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-white/45 sm:text-xs">
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
                       {timeframe} window
                     </span>
@@ -427,7 +416,7 @@ export default function PerformancePage() {
                 </div>
               </div>
             ) : (
-                <div className="px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
+                <div className="px-4 py-4 sm:px-6 sm:py-5 md:px-8">
                 <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3 2xl:grid-cols-5">
                   <StatCard
                     title="Days Tracked"
@@ -489,10 +478,10 @@ export default function PerformancePage() {
                   />
                 </div>
 
-                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:mt-6 sm:rounded-[28px]">
+                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:rounded-[28px]">
                   <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-3 md:flex-row md:items-center md:justify-between sm:px-5 sm:py-4">
                     <div>
-                      <h2 className="text-xl font-semibold text-white sm:text-2xl">
+                      <h2 className="text-lg font-semibold text-white sm:text-xl">
                         Live Equity Trend
                         <span className="text-white/45"> + Test Daily P/L</span>
                       </h2>
@@ -544,7 +533,7 @@ export default function PerformancePage() {
                       </div>
                     </div>
 
-                    <div className="h-[320px] sm:h-[420px]">
+                    <div className="h-[260px] sm:h-[340px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData}>
                           <CartesianGrid
@@ -643,54 +632,46 @@ export default function PerformancePage() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:mt-6 xl:gap-4">
-                  <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                <div className="mt-4 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                     <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
-                      Latest Totals
+                      Live Total
                     </div>
-                    <div className="mt-4 grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                        <div className="text-xs uppercase tracking-[0.18em] text-white/45">
-                          Live Total P/L
-                        </div>
-                        <div
-                          className={`mt-2 text-3xl font-semibold ${getPerformanceTone(
-                            summary.latestLiveTotal,
-                          )}`}
-                        >
-                          {money(summary.latestLiveTotal)}
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                        <div className="text-xs uppercase tracking-[0.18em] text-white/45">
-                          Test Total P/L
-                        </div>
-                        <div
-                          className={`mt-2 text-3xl font-semibold ${getPerformanceTone(
-                            summary.latestTestTotal,
-                          )}`}
-                        >
-                          {money(summary.latestTestTotal)}
-                        </div>
-                      </div>
+                    <div className={`mt-2 text-2xl font-semibold ${getPerformanceTone(summary.latestLiveTotal)}`}>
+                      {money(summary.latestLiveTotal)}
                     </div>
                   </div>
 
-                  <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                     <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
-                      Snapshot Notes
+                      Test Total
                     </div>
-                    <div className="mt-4 space-y-3 text-sm text-white/55">
-                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                        This page is snapshot-based, so it shows one saved point
-                        per day rather than every live poll.
-                      </div>
-                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                        Compare should handle live versus test side-by-side
-                        account analysis. Performance stays focused on timeline
-                        behavior.
-                      </div>
+                    <div className={`mt-2 text-2xl font-semibold ${getPerformanceTone(summary.latestTestTotal)}`}>
+                      {money(summary.latestTestTotal)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                    <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
+                      Data Mode
+                    </div>
+                    <div className="mt-2 text-base font-semibold text-white">
+                      Daily snapshots only
+                    </div>
+                    <div className="mt-1 text-xs text-white/50">
+                      One saved point per day instead of live polling
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                    <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">
+                      Best Use
+                    </div>
+                    <div className="mt-2 text-base font-semibold text-white">
+                      Trend behavior
+                    </div>
+                    <div className="mt-1 text-xs text-white/50">
+                      Compare handles live-vs-test account alignment
                     </div>
                   </div>
                 </div>
