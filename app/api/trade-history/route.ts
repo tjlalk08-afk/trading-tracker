@@ -1,10 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireApprovedApiUser } from "@/lib/requireApprovedApiUser";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  let auth: Awaited<ReturnType<typeof requireApprovedApiUser>> | null = null;
   try {
+    auth = await requireApprovedApiUser(req);
+    if ("error" in auth) return auth.error;
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -12,13 +17,15 @@ export async function GET() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Supabase env vars are missing. Need NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
-        },
-        { status: 500 }
+      return auth.applyCookies(
+        NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Supabase env vars are missing. Need NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+          },
+          { status: 500 }
+        )
       );
     }
 
@@ -48,26 +55,31 @@ export async function GET() {
       .limit(1000);
 
     if (error) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `Failed to load trade history: ${error.message}`,
-        },
-        { status: 500 }
+      return auth.applyCookies(
+        NextResponse.json(
+          {
+            ok: false,
+            error: `Failed to load trade history: ${error.message}`,
+          },
+          { status: 500 }
+        )
       );
     }
 
-    return NextResponse.json({
-      ok: true,
-      data: data ?? [],
-    });
-  } catch (error: any) {
-    return NextResponse.json(
+    return auth.applyCookies(
+      NextResponse.json({
+        ok: true,
+        data: data ?? [],
+      })
+    );
+  } catch (error: unknown) {
+    const response = NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Unexpected trade history error",
+        error: error instanceof Error ? error.message : "Unexpected trade history error",
       },
       { status: 500 }
     );
+    return auth && !("error" in auth) ? auth.applyCookies(response) : response;
   }
 }

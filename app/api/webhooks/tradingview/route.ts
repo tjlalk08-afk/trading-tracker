@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type TvPayload = {
   type?: string;
@@ -11,7 +11,7 @@ type TvPayload = {
   signal_id?: string;
   bar_time?: string;
   price?: number | string;
-  [k: string]: any;
+  [k: string]: unknown;
 };
 
 function normString(v: unknown) {
@@ -34,17 +34,36 @@ function toIsoOrNow(v: unknown) {
   return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
 }
 
-export async function POST(req: Request) {
-  // ===== TOKEN CHECK (WITH DEBUG LENGTHS) =====
+function getAuthToken(req: Request) {
+  const authHeader = req.headers.get("authorization") || "";
+  const bearerToken = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
   const url = new URL(req.url);
-  const token = (url.searchParams.get("token") ?? "").trim();
+  const queryToken = (url.searchParams.get("token") ?? "").trim();
+
+  if (bearerToken) {
+    return { token: bearerToken, mode: "bearer" as const };
+  }
+
+  if (queryToken) {
+    return { token: queryToken, mode: "query" as const };
+  }
+
+  return { token: "", mode: "missing" as const };
+}
+
+export async function POST(req: Request) {
+  const { token, mode } = getAuthToken(req);
   const expected = (process.env.TRADINGVIEW_WEBHOOK_TOKEN ?? "").trim();
 
   if (!expected || token !== expected) {
-    return NextResponse.json(
-      { ok: false, error: "bad token", tokenLen: token.length, expectedLen: expected.length },
-      { status: 401 }
-    );
+    console.warn("[tradingview webhook] unauthorized request", { mode });
+    return NextResponse.json({ ok: false, error: "bad token" }, { status: 401 });
+  }
+
+  if (mode === "query") {
+    console.warn("[tradingview webhook] deprecated query-token compatibility path used");
   }
 
   // ===== PARSE BODY =====
@@ -69,10 +88,7 @@ export async function POST(req: Request) {
   const price = normNumber(payload.price);
   const eventTime = toIsoOrNow(payload.bar_time);
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabase = getSupabaseAdmin();
 
   // ===== ALWAYS STORE RAW SIGNAL =====
   {
@@ -81,7 +97,7 @@ export async function POST(req: Request) {
       action,
       timeframe,
       raw_payload: payload,
-    });
+    } as never);
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
@@ -114,7 +130,7 @@ export async function POST(req: Request) {
         entry_time: eventTime,
         entry_price: price, // can be null
         entry_signal_id: signalId,
-      });
+      } as never);
       if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
@@ -133,16 +149,21 @@ export async function POST(req: Request) {
       .order("entry_time", { ascending: false })
       .limit(1)
       .maybeSingle();
+    const openTrade = open as {
+      id: string | number;
+      entry_price: number | string | null;
+      direction: string | null;
+    } | null;
 
     if (openErr) return NextResponse.json({ ok: false, error: openErr.message }, { status: 500 });
 
-    if (open) {
-      const entry = normNumber(open.entry_price);
+    if (openTrade) {
+      const entry = normNumber(openTrade.entry_price);
       const exit = price;
 
       const pnl =
         entry !== null && exit !== null
-          ? open.direction === "LONG"
+          ? openTrade.direction === "LONG"
             ? exit - entry
             : entry - exit
           : null;
@@ -157,8 +178,8 @@ export async function POST(req: Request) {
           pnl,
           win,
           exit_signal_id: signalId,
-        })
-        .eq("id", open.id);
+        } as never)
+        .eq("id", openTrade.id);
 
       if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }

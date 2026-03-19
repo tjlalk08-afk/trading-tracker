@@ -64,27 +64,38 @@ function getPerformanceTone(value: number) {
 }
 
 function getLocalDayKey(dateStr: string) {
-  const d = new Date(dateStr);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(dateStr));
+
+  const map = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+
+  return `${map.year}-${map.month}-${map.day}`;
 }
 
 function formatDayLabel(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString([], {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
     month: "numeric",
     day: "numeric",
-  });
+  }).format(new Date(dateStr));
 }
 
 function formatSnapshotLabel(dateStr: string) {
-  return new Date(dateStr).toLocaleString([], {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
     month: "numeric",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
+  }).format(new Date(dateStr));
 }
 
 function getRangeFromTimeframe(tf: Timeframe) {
@@ -93,16 +104,21 @@ function getRangeFromTimeframe(tf: Timeframe) {
   return 365;
 }
 
+function shiftDateKey(dateKey: string, days: number) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function filterRowsByTimeframe(rows: HistoryRow[], timeframe: Timeframe) {
   if (rows.length === 0) return rows;
 
-  const latestTs = new Date(rows[rows.length - 1].snapshot_ts).getTime();
   const days = getRangeFromTimeframe(timeframe);
-  const cutoff = latestTs - (days - 1) * 24 * 60 * 60 * 1000;
+  const latestDayKey = getLocalDayKey(rows[rows.length - 1].snapshot_ts);
+  const cutoffDayKey = shiftDateKey(latestDayKey, -(days - 1));
 
-  return rows.filter(
-    (row) => new Date(row.snapshot_ts).getTime() >= cutoff,
-  );
+  return rows.filter((row) => getLocalDayKey(row.snapshot_ts) >= cutoffDayKey);
 }
 
 function StatCard({

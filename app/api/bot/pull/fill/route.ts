@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -39,10 +39,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = getSupabaseAdmin();
 
     const nowIso = new Date().toISOString();
 
@@ -57,7 +54,7 @@ export async function POST(req: Request) {
       price,
       realized_pnl,
       meta: meta ?? null
-    });
+    } as never);
 
     if (error) {
       return NextResponse.json(
@@ -81,7 +78,7 @@ export async function POST(req: Request) {
           fees: 0,
           strategy: null,
           created_at: nowIso
-        });
+        } as never);
 
       if (closeErr) {
         return NextResponse.json(
@@ -93,9 +90,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { ok: false, error: err?.message ?? "unknown error" },
+      {
+        ok: false,
+        error: err instanceof Error ? err.message : "unknown error",
+      },
       { status: 500 }
     );
   }

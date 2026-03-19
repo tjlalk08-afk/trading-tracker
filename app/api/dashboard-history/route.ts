@@ -1,11 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireApprovedApiUser } from "@/lib/requireApprovedApiUser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  let auth: Awaited<ReturnType<typeof requireApprovedApiUser>> | null = null;
   try {
+    auth = await requireApprovedApiUser(req);
+    if ("error" in auth) return auth.error;
+
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("dashboard_snapshots")
@@ -33,17 +38,20 @@ export async function GET() {
       .limit(1000);
 
     if (error) {
-      return NextResponse.json(
-        { ok: false, error: `Failed to load dashboard history: ${error.message}` },
-        { status: 500 },
+      return auth.applyCookies(
+        NextResponse.json(
+          { ok: false, error: `Failed to load dashboard history: ${error.message}` },
+          { status: 500 },
+        )
       );
     }
 
-    return NextResponse.json({ ok: true, data: data ?? [] });
+    return auth.applyCookies(NextResponse.json({ ok: true, data: data ?? [] }));
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown dashboard-history error";
 
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    const response = NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return auth && !("error" in auth) ? auth.applyCookies(response) : response;
   }
 }

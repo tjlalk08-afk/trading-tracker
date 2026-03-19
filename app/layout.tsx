@@ -1,22 +1,29 @@
-import type { Metadata } from "next";
-import { JetBrains_Mono, Public_Sans } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-
-const uiSans = Public_Sans({
-  variable: "--font-ui-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const uiMono = JetBrains_Mono({
-  variable: "--font-ui-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
 
 export const metadata: Metadata = {
   title: "Trading Tracker",
   description: "Track trading performance, dashboards, and investor activity.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Trading Tracker",
+  },
+  icons: {
+    apple: "/apple-icon",
+    icon: [
+      { url: "/icon", type: "image/png", sizes: "512x512" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#061018",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -26,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${uiSans.variable} ${uiMono.variable} antialiased`}>
+      <body className="antialiased">
         {children}
       </body>
     </html>

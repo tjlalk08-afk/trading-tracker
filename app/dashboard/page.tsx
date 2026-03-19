@@ -939,17 +939,10 @@ export default function DashboardHome() {
       setRefreshing(true);
       setError("");
 
-      let ingestRes = await fetch("/api/ingest/brother-dashboard", {
+      const ingestRes = await fetch("/api/ingest/brother-dashboard", {
         method: "POST",
         cache: "no-store",
       });
-
-      if (!ingestRes.ok) {
-        ingestRes = await fetch("/api/ingest/brother-dashboard", {
-          method: "GET",
-          cache: "no-store",
-        });
-      }
 
       const ingestJson = await ingestRes.json().catch(() => null);
 

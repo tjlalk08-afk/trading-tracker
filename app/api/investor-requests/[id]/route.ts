@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { getSubmitterLabelsByUserId } from "@/lib/investorRequestIdentity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ type InvestorRequestRow = {
   note: string | null;
   created_at: string | null;
   to_member_name: string | null;
+  created_by?: string | null;
 };
 
 type PostedTransactionRow = {
@@ -32,6 +34,11 @@ type PostedTransactionRow = {
   units: number | string | null;
   posted_at: string | null;
   to_member_name: string | null;
+};
+
+type InvestorMemberRow = {
+  id: string;
+  name: string | null;
 };
 
 function formatDisplayDate(value: string | null | undefined) {
@@ -144,6 +151,10 @@ export async function PATCH(
         request: {
           id: declinedRequestRow?.id,
           member: declinedRequestRow?.member_name,
+          submittedBy:
+            (await getSubmitterLabelsByUserId([declinedRequestRow?.created_by])).get(
+              declinedRequestRow?.created_by ?? ""
+            ) ?? "Unknown user",
           type: declinedRequestRow?.request_type,
           amount: Number(declinedRequestRow?.amount ?? 0),
           status: declinedRequestRow?.status,
@@ -176,6 +187,116 @@ export async function PATCH(
     }
 
     const completedRequestRow = completedRequest as InvestorRequestRow | null;
+
+    const participantNames = [
+      completedRequestRow?.member_name,
+      completedRequestRow?.to_member_name,
+    ].filter((value): value is string => Boolean(value && value.trim()));
+
+    const { data: participantMembers, error: participantMembersError } = await admin
+      .from("investor_members")
+      .select("id, name")
+      .in("name", participantNames)
+      .eq("active", true);
+
+    if (participantMembersError) {
+      return NextResponse.json(
+        { error: participantMembersError.message || "Failed to load investor members." },
+        { status: 500 }
+      );
+    }
+
+    const memberIdByName = new Map(
+      ((participantMembers as InvestorMemberRow[] | null) ?? []).map((member) => [
+        member.name ?? "",
+        member.id,
+      ])
+    );
+
+    const requestingMemberId = memberIdByName.get(completedRequestRow?.member_name ?? "");
+
+    if (!requestingMemberId) {
+      return NextResponse.json(
+        { error: "Approved request member is not linked to an active investor member." },
+        { status: 400 }
+      );
+    }
+
+    const ledgerInserts: Array<{
+      member_id: string;
+      txn_type: "deposit" | "withdrawal" | "grant";
+      amount: number;
+      units: number;
+      notes: string | null;
+      effective_at: string;
+    }> = [];
+
+    const requestType = String(completedRequestRow?.request_type ?? "").toLowerCase();
+    const amountValue = Number(completedRequestRow?.amount ?? 0);
+    const unitsValue = amountValue / UNIT_PRICE;
+
+    if (requestType === "deposit") {
+      ledgerInserts.push({
+        member_id: requestingMemberId,
+        txn_type: "deposit",
+        amount: amountValue,
+        units: unitsValue,
+        notes: completedRequestRow?.note ?? null,
+        effective_at: nowIso,
+      });
+    }
+
+    if (requestType === "withdrawal") {
+      ledgerInserts.push({
+        member_id: requestingMemberId,
+        txn_type: "withdrawal",
+        amount: amountValue,
+        units: unitsValue,
+        notes: completedRequestRow?.note ?? null,
+        effective_at: nowIso,
+      });
+    }
+
+    if (requestType === "transfer") {
+      const targetMemberId = memberIdByName.get(completedRequestRow?.to_member_name ?? "");
+
+      if (!targetMemberId) {
+        return NextResponse.json(
+          { error: "Transfer target is not linked to an active investor member." },
+          { status: 400 }
+        );
+      }
+
+      ledgerInserts.push({
+        member_id: requestingMemberId,
+        txn_type: "withdrawal",
+        amount: amountValue,
+        units: unitsValue,
+        notes: completedRequestRow?.note ?? "Transfer out",
+        effective_at: nowIso,
+      });
+      ledgerInserts.push({
+        member_id: targetMemberId,
+        txn_type: "deposit",
+        amount: amountValue,
+        units: unitsValue,
+        notes: completedRequestRow?.note ?? "Transfer in",
+        effective_at: nowIso,
+      });
+    }
+
+    if (ledgerInserts.length > 0) {
+      const { error: ledgerInsertError } = await admin
+        .from("investor_transactions")
+        .insert(ledgerInserts as never);
+
+      if (ledgerInsertError) {
+        return NextResponse.json(
+          { error: ledgerInsertError.message || "Failed to update investor ledger." },
+          { status: 500 }
+        );
+      }
+    }
 
     const { data: postedTransaction, error: postedError } = await admin
       .from("investor_posted_transactions")
@@ -216,6 +337,10 @@ export async function PATCH(
       request: {
         id: completedRequestRow?.id,
         member: completedRequestRow?.member_name,
+        submittedBy:
+          (await getSubmitterLabelsByUserId([completedRequestRow?.created_by])).get(
+            completedRequestRow?.created_by ?? ""
+          ) ?? "Unknown user",
         type: completedRequestRow?.request_type,
         amount: Number(completedRequestRow?.amount ?? 0),
         status: completedRequestRow?.status,

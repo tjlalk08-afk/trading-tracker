@@ -12,16 +12,14 @@ type SnapshotRow = {
   created_at?: string;
 };
 
-type InvestorRequest = {
+type InvestorTransactionRow = {
   id: string;
   member_id: string;
-  request_type: "deposit" | "withdrawal" | "transfer";
-  amount: number | null;
-  units: number | null;
-  target_member_id: string | null;
-  status: "pending" | "approved" | "rejected" | "completed";
-  note: string | null;
-  created_at: string;
+  txn_type: "deposit" | "withdrawal" | "grant";
+  amount: number | string | null;
+  units: number | string | null;
+  notes: string | null;
+  effective_at: string;
 };
 
 export async function getInvestorPnlData() {
@@ -47,15 +45,6 @@ export async function getInvestorPnlData() {
     throw new Error(`Transactions load failed: ${txnsError.message}`);
   }
 
-  const { data: requestsRaw, error: requestsError } = await supabase
-    .from("investor_requests")
-    .select("id, member_id, request_type, amount, units, target_member_id, status, note, created_at")
-    .order("created_at", { ascending: false });
-
-  if (requestsError) {
-    throw new Error(`Requests load failed: ${requestsError.message}`);
-  }
-
   const { data: latestSnapshot, error: snapshotError } = await supabase
     .from("dashboard_snapshots")
     .select("*")
@@ -68,22 +57,16 @@ export async function getInvestorPnlData() {
   }
 
   const members: InvestorMember[] = (membersRaw ?? []) as InvestorMember[];
-  const transactions: InvestorTransaction[] = ((txnsRaw ?? []) as any[]).map((t) => ({
+  const transactions: InvestorTransaction[] = ((txnsRaw ?? []) as InvestorTransactionRow[]).map((t) => ({
     ...t,
     amount: Number(t.amount ?? 0),
     units: Number(t.units ?? 0),
   }));
 
-  const requests: InvestorRequest[] = ((requestsRaw ?? []) as any[]).map((r) => ({
-    ...r,
-    amount: r.amount == null ? null : Number(r.amount),
-    units: r.units == null ? null : Number(r.units),
-  }));
-
   const snap = (latestSnapshot ?? {}) as SnapshotRow;
 
   const totalEquity = Number(
-    snap.live_equity ?? snap.equity ?? snap.account_equity ?? 0
+    snap.equity ?? snap.live_equity ?? snap.account_equity ?? 0
   );
 
   const result = computeInvestorRows({
@@ -95,7 +78,6 @@ export async function getInvestorPnlData() {
   return {
     totalEquity,
     snapshot: latestSnapshot,
-    requests,
     members,
     transactions,
     ...result,

@@ -11,16 +11,17 @@ type LatestSnapshotPayload = {
   } | null;
 };
 
-type LivePayload = {
+type LivePollDetail = {
   ok: boolean;
-  ts?: string;
+  ts: string;
+  error?: string;
 };
 
 function timeAgo(dateStr?: string | null) {
-  if (!dateStr) return "—";
+  if (!dateStr) return "-";
 
   const diffMs = Date.now() - new Date(dateStr).getTime();
-  if (!Number.isFinite(diffMs)) return "—";
+  if (!Number.isFinite(diffMs)) return "-";
 
   const secs = Math.floor(diffMs / 1000);
   if (secs < 5) return "just now";
@@ -41,25 +42,22 @@ export default function DashboardFreshnessBadge() {
   const isLivePage = pathname === "/dashboard/live";
 
   const [label, setLabel] = useState(isLivePage ? "Last poll" : "Last snapshot");
-  const [value, setValue] = useState("—");
+  const [value, setValue] = useState("-");
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
+    let latestLivePoll: LivePollDetail | null = null;
 
     async function load() {
       try {
         if (isLivePage) {
-          const res = await fetch("/api/bot/dashboard", { cache: "no-store" });
-          const json: LivePayload = await res.json();
-
-          if (!res.ok || !json?.ok) {
-            setLabel("Last poll");
-            setValue("error");
+          setLabel("Last poll");
+          if (!latestLivePoll) {
+            setValue("waiting");
             return;
           }
 
-          setLabel("Last poll");
-          setValue(new Date().toLocaleTimeString());
+          setValue(latestLivePoll.ok ? timeAgo(latestLivePoll.ts) : "error");
           return;
         }
 
@@ -68,7 +66,7 @@ export default function DashboardFreshnessBadge() {
 
         if (!res.ok || !json?.ok || !json?.data) {
           setLabel("Last snapshot");
-          setValue("—");
+          setValue("-");
           return;
         }
 
@@ -76,15 +74,27 @@ export default function DashboardFreshnessBadge() {
         setLabel("Last snapshot");
         setValue(timeAgo(ts));
       } catch {
-        setValue("—");
+        setValue("-");
       }
     }
 
-    load();
+    function onLivePoll(event: Event) {
+      const customEvent = event as CustomEvent<LivePollDetail>;
+      latestLivePoll = customEvent.detail;
+
+      if (isLivePage) {
+        setLabel("Last poll");
+        setValue(latestLivePoll.ok ? timeAgo(latestLivePoll.ts) : "error");
+      }
+    }
+
+    void load();
     timer = setInterval(load, isLivePage ? 1000 : 15000);
+    window.addEventListener("dashboard-live-poll", onLivePoll as EventListener);
 
     return () => {
       if (timer) clearInterval(timer);
+      window.removeEventListener("dashboard-live-poll", onLivePoll as EventListener);
     };
   }, [isLivePage]);
 

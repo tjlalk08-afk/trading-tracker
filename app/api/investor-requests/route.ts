@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { resolveInvestorRequestIdentity } from "@/lib/investorRequestIdentity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ type InvestorRequestRow = {
   created_at: string | null;
   note: string | null;
   to_member_name: string | null;
+  created_by: string | null;
 };
 
 function formatDisplayDate(value: string | null | undefined) {
@@ -53,9 +55,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const identity = await resolveInvestorRequestIdentity(user);
+
     const body = await req.json();
 
-    const memberName = String(body?.memberName || "").trim();
+    const requestedMemberName = String(body?.memberName || "").trim();
     const requestType = String(body?.requestType || "").trim();
     const amount = Number(body?.amount);
     const transferToMember =
@@ -67,7 +71,22 @@ export async function POST(req: Request) {
         ? body.note.trim()
         : null;
 
+    const memberName = identity.isAdmin
+      ? requestedMemberName
+      : identity.matchedMemberName ?? "";
+
     if (!memberName) {
+      return NextResponse.json(
+        {
+          error: identity.isAdmin
+            ? "Member name is required."
+            : "Your account is not linked to an investor member yet.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!identity.isAdmin && requestedMemberName && requestedMemberName !== memberName) {
       return NextResponse.json({ error: "Member name is required." }, { status: 400 });
     }
 
@@ -135,6 +154,7 @@ export async function POST(req: Request) {
       request: {
         id: insertedRequestRow?.id,
         member: insertedRequestRow?.member_name,
+        submittedBy: identity.submitterLabel,
         type: insertedRequestRow?.request_type,
         amount: Number(insertedRequestRow?.amount ?? 0),
         status: insertedRequestRow?.status,

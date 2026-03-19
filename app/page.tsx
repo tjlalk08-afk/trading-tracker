@@ -66,7 +66,7 @@ export default function HomePage() {
 
       if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset`,
+          redirectTo: `${window.location.origin}/auth/confirm?next=/reset&type=recovery`,
         });
 
         if (error) throw error;
@@ -74,8 +74,8 @@ export default function HomePage() {
         setMsg("Password reset email sent. Check your inbox.");
         return;
       }
-    } catch (e: any) {
-      setErr(e?.message ?? "Something went wrong.");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setLoading(false);
     }

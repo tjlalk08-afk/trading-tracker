@@ -338,11 +338,25 @@ export default function LivePage() {
 
   useEffect(() => {
     let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let controller: AbortController | null = null;
+
+    function publishPollStatus(detail: { ok: boolean; ts: string; error?: string }) {
+      window.dispatchEvent(
+        new CustomEvent("dashboard-live-poll", {
+          detail,
+        }),
+      );
+    }
 
     async function load() {
+      controller?.abort();
+      controller = new AbortController();
+
       try {
         const res = await fetch("/api/bot/dashboard", {
           cache: "no-store",
+          signal: controller.signal,
         });
 
         const json: DashboardResponse = await res.json();
@@ -361,26 +375,39 @@ export default function LivePage() {
         if (!cancelled) {
           setData(normalizeDashboardPayload(json));
           setError("");
+          publishPollStatus({ ok: true, ts: new Date().toISOString() });
         }
       } catch (err: unknown) {
         if (!cancelled) {
           const message =
             err instanceof Error ? err.message : "Failed to load live dashboard";
           setError(message);
+          publishPollStatus({
+            ok: false,
+            ts: new Date().toISOString(),
+            error: message,
+          });
         }
       } finally {
         if (!cancelled) {
           setLoading(false);
         }
+
+        if (!cancelled) {
+          timeoutId = setTimeout(() => {
+            void load();
+          }, 1000);
+        }
       }
     }
 
-    load();
-    const interval = setInterval(load, 1000);
+    void load();
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      controller?.abort();
+      if (timeoutId) clearTimeout(timeoutId);
+      publishPollStatus({ ok: false, ts: new Date().toISOString(), error: "stopped" });
     };
   }, []);
 

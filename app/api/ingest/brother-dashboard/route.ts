@@ -1,8 +1,44 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { getBotDashboardUrl } from "@/lib/botDashboardUrl";
+import { requireAdminApiUser } from "@/lib/requireAdminApiUser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type AuthorizedRequest = {
+  applyCookies(response: NextResponse): NextResponse;
+};
+
+async function authorizeRequest(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  const expected = process.env.CRON_SECRET
+    ? `Bearer ${process.env.CRON_SECRET}`
+    : "";
+
+  if (process.env.CRON_SECRET && authHeader === expected) {
+    return {
+      auth: {
+        applyCookies(response: NextResponse) {
+          return response;
+        },
+      },
+    };
+  }
+
+  const auth = await requireAdminApiUser(req);
+  if ("error" in auth) {
+    return { error: auth.error };
+  }
+
+  return {
+    auth: {
+      applyCookies(response: NextResponse) {
+        return auth.applyCookies(response);
+      },
+    },
+  };
+}
 
 type JsonRecord = Record<string, unknown>;
 
@@ -113,24 +149,8 @@ function dateOnly(value: string): string {
   return value.slice(0, 10);
 }
 
-function resolveBotDashboardUrl(raw: string): string {
-  const trimmed = raw.replace(/\/+$/, "");
-
-  if (trimmed.endsWith("/api/bot/dashboard")) return trimmed;
-  if (trimmed.endsWith("/bot/dashboard")) return `${trimmed.replace(/\/bot\/dashboard$/, "")}/api/bot/dashboard`;
-  if (trimmed.endsWith("/api/dashboard")) return trimmed;
-
-  return `${trimmed}/api/bot/dashboard`;
-}
-
 async function fetchBrotherDashboardPayload(): Promise<JsonRecord> {
-  const raw = process.env.BOT_DASHBOARD_URL?.trim();
-
-  if (!raw) {
-    throw new Error("BOT_DASHBOARD_URL is missing");
-  }
-
-  const url = resolveBotDashboardUrl(raw);
+  const url = getBotDashboardUrl();
 
   const response = await fetch(url, {
     method: "GET",
@@ -424,29 +444,33 @@ function localTimeToUtcIso(
 }
 
 export async function GET() {
-  try {
-    return await handleIngest();
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown ingest error";
-
-    return NextResponse.json(
-      { ok: false, error: message },
-      { status: 500 },
-    );
-  }
+  return NextResponse.json(
+    { ok: false, error: "Method not allowed" },
+    {
+      status: 405,
+      headers: {
+        Allow: "POST",
+      },
+    },
+  );
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  let auth: AuthorizedRequest | null = null;
   try {
-    return await handleIngest();
+    const result = await authorizeRequest(req);
+    if ("error" in result) return result.error;
+    auth = result.auth;
+
+    return auth.applyCookies(await handleIngest());
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown ingest error";
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { ok: false, error: message },
       { status: 500 },
     );
+    return auth ? auth.applyCookies(response) : response;
   }
 }

@@ -11,6 +11,7 @@ type TransactionType = "Deposit" | "Withdrawal" | "Grant" | "Transfer";
 type CapitalRequestRow = {
   id: string;
   member: string;
+  submittedBy?: string;
   type: CapitalRequestType;
   amount: number;
   status: CapitalRequestStatus;
@@ -272,6 +273,11 @@ export default function InvestorRequestAdminClient({
                         <span>
                           Amount: <span className="font-medium text-white">{money(request.amount)}</span>
                         </span>
+                        {request.submittedBy ? (
+                          <span>
+                            Submitted by: <span className="font-medium text-white">{request.submittedBy}</span>
+                          </span>
+                        ) : null}
                         <span>
                           Created: <span className="font-medium text-white">{request.createdAt}</span>
                         </span>
@@ -327,6 +333,7 @@ export default function InvestorRequestAdminClient({
                 <thead>
                   <tr className="border-b border-white/10 text-white/45">
                     <th className="px-4 py-3 font-medium">Member</th>
+                    <th className="px-4 py-3 font-medium">Submitted By</th>
                     <th className="px-4 py-3 font-medium">Type</th>
                     <th className="px-4 py-3 font-medium text-right">Amount</th>
                     <th className="px-4 py-3 font-medium">Status</th>
@@ -337,6 +344,7 @@ export default function InvestorRequestAdminClient({
                   {requests.map((request) => (
                     <tr key={request.id} className="border-b border-white/8 text-white/85 last:border-b-0">
                       <td className="px-4 py-4">{request.member}</td>
+                      <td className="px-4 py-4">{request.submittedBy ?? "-"}</td>
                       <td className="px-4 py-4">
                         <div
                           className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${typeBadgeClass(

@@ -16,6 +16,7 @@ type CapitalRequestStatus = "Pending" | "Approved" | "Declined" | "Completed";
 type TransactionType = "Deposit" | "Withdrawal" | "Grant" | "Transfer";
 
 type MemberRow = {
+  id: string;
   name: string;
   role: MemberRole;
   netContributions: number;
@@ -26,6 +27,7 @@ type MemberRow = {
 type CapitalRequestRow = {
   id: string;
   member: string;
+  submittedBy?: string;
   type: CapitalRequestType;
   amount: number;
   status: CapitalRequestStatus;
@@ -48,42 +50,26 @@ type InvestorDashboardClientProps = {
     fundEquity?: number | null;
     equity?: number | null;
     totalUnits?: number | null;
+    netContributedCapital?: number | null;
+    loadError?: string | null;
+    rows?: {
+      id: string;
+      name: string;
+      role: string;
+      netCashContributed: number;
+      grantedUnits: number;
+      totalUnits: number;
+      ownershipPct: number;
+      currentValue: number;
+      pnlDollar: number;
+      returnPct: number | null;
+    }[];
   } | null;
   initialRequests: CapitalRequestRow[];
   initialPostedTransactions: PostedTransactionRow[];
   isAdmin: boolean;
+  currentMemberName?: string | null;
 };
-
-const INITIAL_MEMBERS: MemberRow[] = [
-  {
-    name: "Lucas",
-    role: "OPERATOR",
-    netContributions: 0,
-    grantedUnits: 3000,
-    totalUnits: 3000,
-  },
-  {
-    name: "Sarah",
-    role: "INVESTOR",
-    netContributions: 5000,
-    grantedUnits: 0,
-    totalUnits: 3000,
-  },
-  {
-    name: "Matt",
-    role: "INVESTOR",
-    netContributions: 5000,
-    grantedUnits: 0,
-    totalUnits: 3000,
-  },
-  {
-    name: "Tate",
-    role: "OPERATOR",
-    netContributions: 0,
-    grantedUnits: 1000,
-    totalUnits: 1000,
-  },
-];
 
 function pickNumber(...values: unknown[]) {
   for (const value of values) {
@@ -242,17 +228,29 @@ export default function InvestorDashboardClient({
   initialRequests,
   initialPostedTransactions,
   isAdmin,
+  currentMemberName,
 }: InvestorDashboardClientProps) {
   const router = useRouter();
 
-  const [members] = useState<MemberRow[]>(INITIAL_MEMBERS);
   const [requests, setRequests] = useState<CapitalRequestRow[]>(initialRequests);
   const [postedTransactions, setPostedTransactions] = useState<PostedTransactionRow[]>(
     initialPostedTransactions
   );
+  const normalizedMembers = useMemo<MemberRow[]>(() => {
+    return (
+      initialData?.rows?.map((row) => ({
+        id: row.id,
+        name: row.name,
+        role: String(row.role).toUpperCase() === "OPERATOR" ? "OPERATOR" : "INVESTOR",
+        netContributions: row.netCashContributed,
+        grantedUnits: row.grantedUnits,
+        totalUnits: row.totalUnits,
+      })) ?? []
+    );
+  }, [initialData?.rows]);
 
   const [activeAction, setActiveAction] = useState<CapitalRequestType | null>(null);
-  const [requestMember, setRequestMember] = useState<string>("Sarah");
+  const [requestMember, setRequestMember] = useState<string>(currentMemberName ?? normalizedMembers[0]?.name ?? "");
   const [requestTransferTo, setRequestTransferTo] = useState<string>("");
   const [requestAmount, setRequestAmount] = useState<string>("");
   const [requestNote, setRequestNote] = useState<string>("");
@@ -267,8 +265,27 @@ export default function InvestorDashboardClient({
     setPostedTransactions(initialPostedTransactions);
   }, [initialPostedTransactions]);
 
-  const fundEquity = pickNumber(initialData?.fundEquity, initialData?.equity, 7691.68);
-  const totalUnits = pickNumber(initialData?.totalUnits, 10000);
+  useEffect(() => {
+    if (!normalizedMembers.length) {
+      setRequestMember(currentMemberName ?? "");
+      setRequestTransferTo("");
+      return;
+    }
+
+    setRequestMember((current) => {
+      if (!isAdmin && currentMemberName) {
+        return currentMemberName;
+      }
+      if (current && normalizedMembers.some((member) => member.name === current)) {
+        return current;
+      }
+      return normalizedMembers[0]?.name ?? "";
+    });
+  }, [currentMemberName, isAdmin, normalizedMembers]);
+
+  const members = normalizedMembers;
+  const fundEquity = pickNumber(initialData?.fundEquity, initialData?.equity, 0);
+  const totalUnits = pickNumber(initialData?.totalUnits, 0);
   const unitPrice = totalUnits > 0 ? fundEquity / totalUnits : 0;
 
   const pendingRequests = useMemo(
@@ -277,7 +294,10 @@ export default function InvestorDashboardClient({
   );
 
   const pendingRequestsCount = pendingRequests.length;
-  const netContributedCapital = members.reduce((sum, m) => sum + m.netContributions, 0);
+  const netContributedCapital = pickNumber(
+    initialData?.netContributedCapital,
+    members.reduce((sum, m) => sum + m.netContributions, 0)
+  );
 
   const ownershipRows = members.map((member) => {
     const ownership = totalUnits > 0 ? member.totalUnits / totalUnits : 0;
@@ -299,6 +319,7 @@ export default function InvestorDashboardClient({
 
   const memberOptions = members.filter((m) => m.role === "INVESTOR" || m.role === "OPERATOR");
   const transferOptions = memberOptions.filter((m) => m.name !== requestMember);
+  const ownershipLoadError = initialData?.loadError ?? null;
 
   function openRequestForm(type: CapitalRequestType) {
     setActiveAction(type);
@@ -306,7 +327,7 @@ export default function InvestorDashboardClient({
     setRequestNote("");
     setSubmitError(null);
 
-    const currentMember = requestMember || memberOptions[0]?.name || "Sarah";
+    const currentMember = requestMember || memberOptions[0]?.name || "";
 
     if (type === "Transfer") {
       const firstOther = memberOptions.find((m) => m.name !== currentMember)?.name ?? "";
@@ -462,28 +483,34 @@ export default function InvestorDashboardClient({
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <label className="space-y-1.5">
                     <div className="text-xs uppercase tracking-[0.16em] text-white/45">Member</div>
-                    <select
-                      value={requestMember}
-                      onChange={(e) => {
-                        const nextMember = e.target.value;
-                        setRequestMember(nextMember);
+                    {isAdmin ? (
+                      <select
+                        value={requestMember}
+                        onChange={(e) => {
+                          const nextMember = e.target.value;
+                          setRequestMember(nextMember);
 
-                        if (activeAction === "Transfer") {
-                          const firstOther =
-                            memberOptions.find((m) => m.name !== nextMember)?.name ?? "";
-                          if (!requestTransferTo || requestTransferTo === nextMember) {
-                            setRequestTransferTo(firstOther);
+                          if (activeAction === "Transfer") {
+                            const firstOther =
+                              memberOptions.find((m) => m.name !== nextMember)?.name ?? "";
+                            if (!requestTransferTo || requestTransferTo === nextMember) {
+                              setRequestTransferTo(firstOther);
+                            }
                           }
-                        }
-                      }}
-                      className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none"
-                    >
-                      {memberOptions.map((member) => (
-                        <option key={member.name} value={member.name} className="bg-[#0b1118]">
-                          {member.name}
-                        </option>
-                      ))}
-                    </select>
+                        }}
+                        className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none"
+                      >
+                        {memberOptions.map((member) => (
+                          <option key={member.name} value={member.name} className="bg-[#0b1118]">
+                            {member.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white">
+                        {currentMemberName ?? "Contact an admin to link your investor member"}
+                      </div>
+                    )}
                   </label>
 
                   <label className="space-y-1.5">
@@ -528,6 +555,12 @@ export default function InvestorDashboardClient({
                   />
                 </label>
 
+                {!isAdmin && !currentMemberName ? (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                    Your account is not linked to an investor member yet. Ask an admin to link it before submitting requests.
+                  </div>
+                ) : null}
+
                 {submitError ? (
                   <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
                     {submitError}
@@ -537,7 +570,7 @@ export default function InvestorDashboardClient({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || (!isAdmin && !currentMemberName)}
                     className="rounded-xl border border-emerald-400/20 bg-emerald-500/12 px-4 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/18 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSubmitting ? "Submitting..." : "Submit Request"}
@@ -606,6 +639,11 @@ export default function InvestorDashboardClient({
                             <span>
                               Amount: <span className="font-medium text-white">{money(request.amount)}</span>
                             </span>
+                            {request.submittedBy ? (
+                              <span>
+                                Submitted by: <span className="font-medium text-white">{request.submittedBy}</span>
+                              </span>
+                            ) : null}
                             {request.type === "Transfer" && request.transferTo ? (
                               <span>
                                 To: <span className="font-medium text-white">{request.transferTo}</span>
@@ -640,6 +678,12 @@ export default function InvestorDashboardClient({
           </div>
         </div>
 
+        {ownershipLoadError ? (
+          <div className="border-b border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            Investor ownership data could not be loaded: {ownershipLoadError}
+          </div>
+        ) : null}
+
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead>
@@ -656,45 +700,56 @@ export default function InvestorDashboardClient({
               </tr>
             </thead>
             <tbody>
-              {ownershipRows.map((row) => (
-                <tr key={row.name} className="border-b border-white/8 text-white/85 last:border-b-0">
-                  <td className="px-4 py-4 font-medium">{row.name}</td>
-                  <td className="px-4 py-4">
-                    <div
-                      className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${roleBadgeClass(
-                        row.role
-                      )}`}
-                    >
-                      {row.role}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-right">{money(row.netContributions)}</td>
-                  <td className="px-4 py-4 text-right">{number2(row.grantedUnits)}</td>
-                  <td className="px-4 py-4 text-right">{number2(row.totalUnits)}</td>
-                  <td className="px-4 py-4 text-right">{signedPct(row.ownership * 100)}</td>
-                  <td className="px-4 py-4 text-right font-medium">{money(row.currentValue)}</td>
-                  <td className={`px-4 py-4 text-right font-medium ${pnlTextClass(row.pnl)}`}>
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 ${
-                        row.pnl > 0
-                          ? "bg-emerald-500/12"
-                          : row.pnl < 0
-                          ? "bg-red-500/12"
-                          : "bg-white/[0.04]"
+              {ownershipRows.length ? (
+                ownershipRows.map((row) => (
+                  <tr key={row.name} className="border-b border-white/8 text-white/85 last:border-b-0">
+                    <td className="px-4 py-4 font-medium">{row.name}</td>
+                    <td className="px-4 py-4">
+                      <div
+                        className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${roleBadgeClass(
+                          row.role
+                        )}`}
+                      >
+                        {row.role}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-right">{money(row.netContributions)}</td>
+                    <td className="px-4 py-4 text-right">{number2(row.grantedUnits)}</td>
+                    <td className="px-4 py-4 text-right">{number2(row.totalUnits)}</td>
+                    <td className="px-4 py-4 text-right">{signedPct(row.ownership * 100)}</td>
+                    <td className="px-4 py-4 text-right font-medium">{money(row.currentValue)}</td>
+                    <td className={`px-4 py-4 text-right font-medium ${pnlTextClass(row.pnl)}`}>
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 ${
+                          row.pnl > 0
+                            ? "bg-emerald-500/12"
+                            : row.pnl < 0
+                            ? "bg-red-500/12"
+                            : "bg-white/[0.04]"
+                        }`}
+                      >
+                        {signedMoney(row.pnl)}
+                      </span>
+                    </td>
+                    <td
+                      className={`px-4 py-4 text-right ${
+                        row.returnPct === null ? "text-white/40" : pnlTextClass(row.returnPct)
                       }`}
                     >
-                      {signedMoney(row.pnl)}
-                    </span>
-                  </td>
-                  <td
-                    className={`px-4 py-4 text-right ${
-                      row.returnPct === null ? "text-white/40" : pnlTextClass(row.returnPct)
-                    }`}
-                  >
-                    {row.returnPct === null ? "—" : signedPct(row.returnPct)}
+                      {row.returnPct === null ? "-" : signedPct(row.returnPct)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8">
+                    <SmallEmptyState
+                      title="No investor ownership data yet"
+                      sub="Add active investor members and post capital transactions to populate the ownership table."
+                    />
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -718,6 +773,7 @@ export default function InvestorDashboardClient({
                 <thead>
                   <tr className="border-b border-white/10 text-white/45">
                     <th className="px-4 py-3 font-medium">Member</th>
+                    <th className="px-4 py-3 font-medium">Submitted By</th>
                     <th className="px-4 py-3 font-medium">Type</th>
                     <th className="px-4 py-3 font-medium">To</th>
                     <th className="px-4 py-3 font-medium text-right">Amount</th>
@@ -729,6 +785,7 @@ export default function InvestorDashboardClient({
                   {requests.map((request) => (
                     <tr key={request.id} className="border-b border-white/8 text-white/85 last:border-b-0">
                       <td className="px-4 py-4">{request.member}</td>
+                      <td className="px-4 py-4">{request.submittedBy ?? "-"}</td>
                       <td className="px-4 py-4">
                         <div
                           className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${typeBadgeClass(
@@ -738,7 +795,7 @@ export default function InvestorDashboardClient({
                           {request.type}
                         </div>
                       </td>
-                      <td className="px-4 py-4">{request.transferTo ?? "—"}</td>
+                      <td className="px-4 py-4">{request.transferTo ?? "-"}</td>
                       <td className="px-4 py-4 text-right">{money(request.amount)}</td>
                       <td className="px-4 py-4">
                         <div
@@ -801,7 +858,7 @@ export default function InvestorDashboardClient({
                         {tx.type}
                       </div>
                     </td>
-                    <td className="px-4 py-4">{tx.transferTo ?? "—"}</td>
+                    <td className="px-4 py-4">{tx.transferTo ?? "-"}</td>
                     <td className="px-4 py-4 text-right">{money(tx.amount)}</td>
                     <td className="px-4 py-4 text-right">{number2(tx.units)}</td>
                     <td className="px-4 py-4 text-white/65">{tx.when}</td>

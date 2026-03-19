@@ -10,7 +10,7 @@ export default function GlobalRefreshSnapshotButton() {
       setLoading(true);
 
       const res = await fetch("/api/ingest/brother-dashboard", {
-        method: "GET",
+        method: "POST",
         cache: "no-store",
       });
 

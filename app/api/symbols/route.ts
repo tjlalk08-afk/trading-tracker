@@ -1,15 +1,23 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireApprovedApiUser } from "@/lib/requireApprovedApiUser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type TradeRow = {
+  id: string | number | null;
   symbol: string | null;
+  side: string | null;
+  qty: number | string | null;
+  entry_price: number | string | null;
+  exit_price: number | string | null;
   realized_pl: number | null;
   source: string | null;
   trade_day: string | null;
+  opened_at: string | null;
   closed_at: string | null;
+  external_trade_id: string | null;
 };
 
 function startDateFromRange(range: string): string {
@@ -32,23 +40,29 @@ function startDateFromRange(range: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  let auth: Awaited<ReturnType<typeof requireApprovedApiUser>> | null = null;
   try {
+    auth = await requireApprovedApiUser(req);
+    if ("error" in auth) return auth.error;
+
     const { searchParams } = new URL(req.url);
     const range = searchParams.get("range") ?? "30d";
     const startDate = startDateFromRange(range);
 
     const { data, error } = await supabaseAdmin
       .from("trade_history")
-      .select("symbol, realized_pl, source, trade_day, closed_at")
+      .select("id, symbol, side, qty, entry_price, exit_price, realized_pl, source, trade_day, opened_at, closed_at, external_trade_id")
       .eq("source", "brother_live")
       .gte("trade_day", startDate)
       .order("trade_day", { ascending: false });
 
     if (error) {
-      return NextResponse.json(
-        { ok: false, error: error.message },
-        { status: 500 },
+      return auth.applyCookies(
+        NextResponse.json(
+          { ok: false, error: error.message },
+          { status: 500 },
+        )
       );
     }
 
@@ -65,6 +79,17 @@ export async function GET(req: Request) {
         realized_pl: number;
         gross_wins: number;
         gross_losses: number;
+        trade_rows: Array<{
+          id: string;
+          side: string | null;
+          qty: number;
+          entry_price: number | null;
+          exit_price: number | null;
+          realized_pl: number;
+          trade_day: string | null;
+          opened_at: string | null;
+          closed_at: string | null;
+        }>;
       }
     >();
 
@@ -84,6 +109,7 @@ export async function GET(req: Request) {
           realized_pl: 0,
           gross_wins: 0,
           gross_losses: 0,
+          trade_rows: [],
         });
       }
 
@@ -100,6 +126,21 @@ export async function GET(req: Request) {
       } else {
         bucket.flat += 1;
       }
+
+      bucket.trade_rows.push({
+        id:
+          String(row.external_trade_id ?? row.id ?? `${symbol}-${row.closed_at ?? row.trade_day ?? bucket.trades}`),
+        side: row.side,
+        qty: Number(row.qty ?? 0),
+        entry_price:
+          row.entry_price == null ? null : Number(row.entry_price),
+        exit_price:
+          row.exit_price == null ? null : Number(row.exit_price),
+        realized_pl: realized,
+        trade_day: row.trade_day,
+        opened_at: row.opened_at,
+        closed_at: row.closed_at,
+      });
     }
 
     const symbols = Array.from(bySymbol.values())
@@ -121,6 +162,11 @@ export async function GET(req: Request) {
           realized_pl: Number(row.realized_pl.toFixed(2)),
           avg_win: Number(avgWin.toFixed(2)),
           avg_loss: Number(avgLoss.toFixed(2)),
+          trade_rows: row.trade_rows.sort(
+            (a, b) =>
+              new Date(b.closed_at ?? b.trade_day ?? 0).getTime() -
+              new Date(a.closed_at ?? a.trade_day ?? 0).getTime(),
+          ),
         };
       })
       .sort((a, b) => b.realized_pl - a.realized_pl);
@@ -133,25 +179,28 @@ export async function GET(req: Request) {
     const decisive = totalWins + totalLosses;
     const overallWinRate = decisive > 0 ? (totalWins / decisive) * 100 : 0;
 
-    return NextResponse.json({
-      ok: true,
-      range,
-      start_date: startDate,
-      summary: {
-        symbols: symbols.length,
-        trades: totalTrades,
-        realized_pl: Number(totalRealized.toFixed(2)),
-        win_rate: Number(overallWinRate.toFixed(1)),
-      },
-      rows: symbols,
-    });
+    return auth.applyCookies(
+      NextResponse.json({
+        ok: true,
+        range,
+        start_date: startDate,
+        summary: {
+          symbols: symbols.length,
+          trades: totalTrades,
+          realized_pl: Number(totalRealized.toFixed(2)),
+          win_rate: Number(overallWinRate.toFixed(1)),
+        },
+        rows: symbols,
+      })
+    );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown symbols error";
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { ok: false, error: message },
       { status: 500 },
     );
+    return auth && !("error" in auth) ? auth.applyCookies(response) : response;
   }
 }

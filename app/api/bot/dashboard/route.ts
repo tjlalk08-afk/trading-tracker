@@ -1,14 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getBotDashboardUrl } from "@/lib/botDashboardUrl";
+import { requireApprovedApiUser } from "@/lib/requireApprovedApiUser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const UPSTREAM =
-  process.env.BOT_DASHBOARD_UPSTREAM ?? "https://dashboard.ngtdashboard.com";
-
-export async function GET() {
+export async function GET(req: NextRequest) {
+  let auth: Awaited<ReturnType<typeof requireApprovedApiUser>> | null = null;
   try {
-    const res = await fetch(`${UPSTREAM}/api/dashboard`, {
+    auth = await requireApprovedApiUser(req);
+    if ("error" in auth) return auth.error;
+
+    const res = await fetch(getBotDashboardUrl(), {
       cache: "no-store",
       headers: {
         accept: "application/json",
@@ -16,35 +19,39 @@ export async function GET() {
     });
 
     if (!res.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Upstream bot dashboard failed",
-          status: res.status,
-        },
-        {
-          status: 502,
-          headers: { "Cache-Control": "no-store" },
-        }
+      return auth.applyCookies(
+        NextResponse.json(
+          {
+            ok: false,
+            error: "Upstream bot dashboard failed",
+            status: res.status,
+          },
+          {
+            status: 502,
+            headers: { "Cache-Control": "no-store" },
+          }
+        )
       );
     }
 
     const upstream = await res.json();
 
-    return NextResponse.json(
-      {
-        ok: upstream?.ok ?? true,
-        data: upstream?.data ?? upstream,
-        ts: new Date().toISOString(),
-      },
-      {
-        headers: { "Cache-Control": "no-store" },
-      }
+    return auth.applyCookies(
+      NextResponse.json(
+        {
+          ok: upstream?.ok ?? true,
+          data: upstream?.data ?? upstream,
+          ts: new Date().toISOString(),
+        },
+        {
+          headers: { "Cache-Control": "no-store" },
+        }
+      )
     );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         ok: false,
         error: `Bot dashboard upstream fetch failed: ${message}`,
@@ -54,5 +61,6 @@ export async function GET() {
         headers: { "Cache-Control": "no-store" },
       }
     );
+    return auth && !("error" in auth) ? auth.applyCookies(response) : response;
   }
 }

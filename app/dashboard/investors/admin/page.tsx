@@ -2,6 +2,10 @@ import { redirect } from "next/navigation";
 import InvestorRequestAdminClient from "@/components/InvestorRequestAdminClient";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { supabaseServer } from "@/lib/supabaseServer";
+import {
+  getSubmitterLabelsByUserId,
+  resolveInvestorRequestIdentity,
+} from "@/lib/investorRequestIdentity";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +23,7 @@ type InvestorRequestRow = {
   note: string | null;
   created_at: string | null;
   to_member_name: string | null;
+  created_by: string | null;
 };
 
 type PostedTransactionRow = {
@@ -66,14 +71,19 @@ export default async function InvestorsAdminPage() {
   const profileRow = profile as ProfileRow | null;
   const isAdmin = profileRow?.role === "admin" && profileRow?.approved === true;
 
+  const adminIdentity = await resolveInvestorRequestIdentity(user);
+
   if (!isAdmin) {
     redirect("/dashboard/investors");
   }
 
   const { data: requestRows } = await admin
     .from("investor_requests")
-    .select("id, member_name, request_type, amount, status, note, created_at, to_member_name")
+    .select("id, member_name, request_type, amount, status, note, created_at, to_member_name, created_by")
     .order("created_at", { ascending: false });
+  const submitterLabels = await getSubmitterLabelsByUserId(
+    ((requestRows as InvestorRequestRow[] | null) ?? []).map((row) => row.created_by),
+  );
 
   const { data: postedTransactionRows } = await admin
     .from("investor_posted_transactions")
@@ -84,6 +94,10 @@ export default async function InvestorsAdminPage() {
     (requestRows as InvestorRequestRow[] | null)?.map((row) => ({
       id: row.id,
       member: row.member_name ?? "",
+      submittedBy:
+        row.created_by === user.id
+          ? adminIdentity.submitterLabel
+          : submitterLabels.get(row.created_by ?? "") ?? "Unknown user",
       type: row.request_type as "Deposit" | "Withdrawal" | "Transfer",
       amount: Number(row.amount ?? 0),
       status: row.status as "Pending" | "Approved" | "Declined" | "Completed",

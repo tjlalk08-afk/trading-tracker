@@ -1,14 +1,24 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getBotDashboardUrl } from "@/lib/botDashboardUrl";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
-const asNum = (v: any) => {
+type JsonObject = Record<string, unknown>;
+type PositionRecord = {
+  qty?: number | string | null;
+  option_symbol?: string | null;
+  side?: string | null;
+  entry_price?: number | string | null;
+  mark?: number | string | null;
+};
+
+const asNum = (v: unknown) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
 
-const num0 = (v: any) => {
+const num0 = (v: unknown) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
@@ -16,27 +26,30 @@ const num0 = (v: any) => {
 const eventKey = (parts: Array<string | number | null | undefined>) =>
   parts.map((p) => (p === null || p === undefined ? "" : String(p))).join("|");
 
-export async function GET(req: Request) {
+function getBearerToken(req: Request) {
+  const authHeader = req.headers.get("authorization") || "";
+  return authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
+}
+
+async function handlePull(req: Request, method: "GET" | "POST") {
   try {
-    const url = new URL(req.url);
-    const token = (url.searchParams.get("token") ?? "").trim();
+    const token = getBearerToken(req);
     const expected = (process.env.BOT_API_TOKEN ?? "").trim();
 
     if (!expected || token !== expected) {
+      console.warn("[bot/pull] unauthorized request", { method });
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
-    const botUrl = process.env.BOT_DASHBOARD_URL;
-    if (!botUrl) {
-      return NextResponse.json(
-        { ok: false, error: "BOT_DASHBOARD_URL missing" },
-        { status: 500 }
-      );
+    if (method === "GET") {
+      console.warn("[bot/pull] deprecated GET compatibility path used");
     }
 
-    const r = await fetch(botUrl, { cache: "no-store" });
+    const r = await fetch(getBotDashboardUrl(), { cache: "no-store" });
 
-    let json: any = null;
+    let json: { ok?: boolean; ts?: string; data?: JsonObject } | null = null;
     try {
       json = await r.json();
     } catch {
@@ -54,7 +67,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const data = json?.data ?? {};
+    const data: JsonObject = json?.data ?? {};
 
     const cash = asNum(data.cash);
     const equity = asNum(data.equity);
@@ -67,10 +80,7 @@ export async function GET(req: Request) {
         : {};
     const positionsCount = Object.keys(positionsObj).length;
 
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = getSupabaseAdmin();
 
     const tsIso = (json.ts ?? new Date().toISOString()) as string;
 
@@ -83,7 +93,7 @@ export async function GET(req: Request) {
       realized_pnl: realizedPnl,
       positions_count: positionsCount,
       raw: json,
-    });
+    } as never);
 
     if (snapErr) {
       return NextResponse.json({ ok: false, error: snapErr.message }, { status: 500 });
@@ -100,8 +110,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: prevErr.message }, { status: 500 });
     }
 
-    const prevRaw = prevRows?.[1]?.raw ?? null;
-    const prevData = prevRaw?.data ?? {};
+    const prevRaw = (prevRows?.[1] as { raw?: unknown } | undefined)?.raw ?? null;
+    const prevData =
+      prevRaw && typeof prevRaw === "object" && "data" in prevRaw
+        ? (((prevRaw as { data?: unknown }).data as JsonObject | undefined) ?? {})
+        : {};
     const prevPositions =
       prevData.positions && typeof prevData.positions === "object"
         ? prevData.positions
@@ -118,8 +131,8 @@ export async function GET(req: Request) {
     ]);
 
     for (const k of keys) {
-      const prev = (prevPositions as any)[k] ?? null;
-      const curr = (currPositions as any)[k] ?? null;
+      const prev = (prevPositions as Record<string, PositionRecord | null>)[k] ?? null;
+      const curr = (currPositions as Record<string, PositionRecord | null>)[k] ?? null;
 
       const prevQty = prev ? num0(prev.qty) : 0;
       const currQty = curr ? num0(curr.qty) : 0;
@@ -152,7 +165,7 @@ export async function GET(req: Request) {
             price: entryPrice ?? markPrice,
             realized_pnl: null,
             meta: { source: "pull", dedupe_key: eventKey(["OPEN", position_id, currQty, tsIso]) },
-          });
+          } as never);
         }
       }
 
@@ -177,7 +190,7 @@ export async function GET(req: Request) {
             price: markPrice ?? entryPrice,
             realized_pnl: null,
             meta: { source: "pull", dedupe_key: eventKey(["CLOSE", position_id, prevQty, tsIso]) },
-          });
+          } as never);
         }
       }
 
@@ -210,16 +223,24 @@ export async function GET(req: Request) {
               currQty,
               dedupe_key: eventKey([event_type, position_id, deltaQty, tsIso]),
             },
-          });
+          } as never);
         }
       }
     }
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { ok: false, error: err?.message ?? "unknown error" },
+      { ok: false, error: err instanceof Error ? err.message : "unknown error" },
       { status: 500 }
     );
   }
+}
+
+export async function GET(req: Request) {
+  return handlePull(req, "GET");
+}
+
+export async function POST(req: Request) {
+  return handlePull(req, "POST");
 }

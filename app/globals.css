@@ -15,8 +15,8 @@
   --success: #34d399;
   --danger: #f87171;
   --warning: #fbbf24;
-  --font-geist-sans: var(--font-ui-sans), "Aptos", "Segoe UI", sans-serif;
-  --font-geist-mono: var(--font-ui-mono), "Cascadia Mono", "Consolas", monospace;
+  --font-geist-sans: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-geist-mono: "Cascadia Mono", "SFMono-Regular", "Consolas", monospace;
 }
 
 @theme inline {

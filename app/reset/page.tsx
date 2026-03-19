@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
@@ -8,10 +8,44 @@ export default function ResetPage() {
   const router = useRouter();
   const [pw, setPw] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [canReset, setCanReset] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadRecoverySession() {
+      const res = await fetch("/api/auth/reset-session", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        setCanReset(false);
+        setMsg("This reset link is invalid or expired. Request a new one from the login page.");
+        setCheckingSession(false);
+        return;
+      }
+
+      const payload = (await res.json()) as { canReset?: boolean };
+
+      if (!payload.canReset) {
+        setCanReset(false);
+        setMsg("This reset link is invalid or expired. Request a new one from the login page.");
+        setCheckingSession(false);
+        return;
+      }
+
+      setCanReset(true);
+      setCheckingSession(false);
+    }
+
+    void loadRecoverySession();
+  }, []);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!canReset) return;
+
     setMsg(null);
     setLoading(true);
 
@@ -20,10 +54,14 @@ export default function ResetPage() {
       const { error } = await supabase.auth.updateUser({ password: pw });
       if (error) throw error;
 
-      setMsg("Password updated. Redirecting…");
+      await fetch("/api/auth/reset-session", {
+        method: "DELETE",
+      });
+
+      setMsg("Password updated. Redirecting...");
       setTimeout(() => router.push("/dashboard"), 600);
-    } catch (err: any) {
-      setMsg(err?.message ?? "Reset failed");
+    } catch (err: unknown) {
+      setMsg(err instanceof Error ? err.message : "Reset failed");
     } finally {
       setLoading(false);
     }
@@ -45,6 +83,8 @@ export default function ResetPage() {
               onChange={(e) => setPw(e.target.value)}
               type="password"
               required
+              minLength={8}
+              disabled={checkingSession || !canReset || loading}
               className="w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2 outline-none focus:border-white/30"
             />
           </label>
@@ -56,11 +96,11 @@ export default function ResetPage() {
           )}
 
           <button
-            disabled={loading}
+            disabled={loading || checkingSession || !canReset}
             className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-60 px-3 py-2 font-semibold"
             type="submit"
           >
-            {loading ? "Updating…" : "Update password"}
+            {checkingSession ? "Checking link..." : loading ? "Updating..." : "Update password"}
           </button>
         </form>
       </div>

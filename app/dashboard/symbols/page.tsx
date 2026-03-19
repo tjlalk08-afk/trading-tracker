@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 type Timeframe = "7D" | "30D" | "1Y";
 
@@ -14,6 +14,17 @@ type ApiSymbolRow = {
   realized_pl: number;
   avg_win: number;
   avg_loss: number;
+  trade_rows: {
+    id: string;
+    side: string | null;
+    qty: number;
+    entry_price: number | null;
+    exit_price: number | null;
+    realized_pl: number;
+    trade_day: string | null;
+    opened_at: string | null;
+    closed_at: string | null;
+  }[];
 };
 
 type SymbolsApiResponse = {
@@ -38,8 +49,28 @@ function formatMoney(value: number) {
   })}`;
 }
 
+function formatUnsignedMoney(value: number | null) {
+  if (value == null) return "—";
+  return `$${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function formatPct(value: number) {
   return `${value.toFixed(1)}%`;
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString([], {
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function getRangeFromTimeframe(tf: Timeframe) {
@@ -90,6 +121,7 @@ export default function SymbolsPage() {
   const [data, setData] = useState<SymbolsApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +147,9 @@ export default function SymbolsPage() {
 
         if (!cancelled) {
           setData(json);
+          setExpandedSymbol((current) =>
+            current && json.rows.some((row) => row.symbol === current) ? current : null,
+          );
         }
       } catch (err: unknown) {
         if (!cancelled) {
@@ -474,8 +509,8 @@ export default function SymbolsPage() {
                                 : "from-slate-800/50";
 
                           return (
+                            <Fragment key={`${timeframe}-${row.symbol}`}>
                             <tr
-                              key={`${timeframe}-${row.symbol}`}
                               className={`border-t border-slate-700/30 bg-gradient-to-r ${rowTone} to-transparent transition hover:bg-slate-900/38`}
                             >
                               <td className="px-3 py-2.5 align-middle">
@@ -487,7 +522,15 @@ export default function SymbolsPage() {
                               </td>
 
                               <td className="px-3 py-2.5 align-middle">
-                                <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedSymbol((current) =>
+                                      current === row.symbol ? null : row.symbol,
+                                    )
+                                  }
+                                  className="flex w-full items-center gap-3 text-left"
+                                >
                                   <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-700/40 bg-slate-900/55 text-sm font-semibold text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                                     {row.symbol.slice(0, 2)}
                                   </div>
@@ -500,7 +543,7 @@ export default function SymbolsPage() {
                                       {row.trades === 1 ? "" : "s"}
                                     </div>
                                   </div>
-                                </div>
+                                </button>
                               </td>
 
                               <td
@@ -539,6 +582,70 @@ export default function SymbolsPage() {
                                 {formatMoney(row.avg_loss)}
                               </td>
                             </tr>
+                            {expandedSymbol === row.symbol ? (
+                              <tr
+                                className="border-t border-slate-800/60 bg-slate-950/70"
+                              >
+                                <td colSpan={10} className="px-3 py-3">
+                                  <div className="rounded-2xl border border-slate-700/40 bg-slate-950/50 p-3">
+                                    <div className="mb-3 flex items-center justify-between gap-3">
+                                      <div>
+                                        <div className="text-sm font-semibold text-slate-100">
+                                          {row.symbol} Trades
+                                        </div>
+                                        <div className="mt-1 text-xs text-slate-400">
+                                          All closed live trades in the selected range.
+                                        </div>
+                                      </div>
+                                      <div className="rounded-full border border-slate-700/40 bg-slate-900/45 px-3 py-1 text-[11px] text-slate-400">
+                                        {row.trade_rows.length} trades
+                                      </div>
+                                    </div>
+
+                                    <div className="overflow-x-auto">
+                                      <table className="min-w-full text-sm">
+                                        <thead>
+                                          <tr className="border-b border-slate-700/40 text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                                            <th className="px-2 py-2 text-left font-medium">Closed</th>
+                                            <th className="px-2 py-2 text-left font-medium">Side</th>
+                                            <th className="px-2 py-2 text-right font-medium">Qty</th>
+                                            <th className="px-2 py-2 text-right font-medium">Entry</th>
+                                            <th className="px-2 py-2 text-right font-medium">Exit</th>
+                                            <th className="px-2 py-2 text-right font-medium">P/L</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {row.trade_rows.map((trade) => (
+                                            <tr
+                                              key={trade.id}
+                                              className="border-t border-slate-800/50 text-slate-200"
+                                            >
+                                              <td className="px-2 py-2">{formatDate(trade.closed_at ?? trade.trade_day)}</td>
+                                              <td className="px-2 py-2">{trade.side ?? "—"}</td>
+                                              <td className="px-2 py-2 text-right">{trade.qty}</td>
+                                              <td className="px-2 py-2 text-right">
+                                                {formatUnsignedMoney(trade.entry_price)}
+                                              </td>
+                                              <td className="px-2 py-2 text-right">
+                                                {formatUnsignedMoney(trade.exit_price)}
+                                              </td>
+                                              <td
+                                                className={`px-2 py-2 text-right font-medium ${getPerformanceTone(
+                                                  trade.realized_pl,
+                                                )}`}
+                                              >
+                                                {formatMoney(trade.realized_pl)}
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : null}
+                            </Fragment>
                           );
                         })}
                       </tbody>

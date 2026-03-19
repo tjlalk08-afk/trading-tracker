@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { getBotDashboardUrl } from "@/lib/botDashboardUrl";
+import { requireApprovedApiUser } from "@/lib/requireApprovedApiUser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,7 +65,6 @@ function configCheck(): CheckResult {
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
     "SUPABASE_SERVICE_ROLE_KEY",
-    "BOT_DASHBOARD_URL",
   ];
 
   const missing = required.filter((key) => !process.env[key]?.trim());
@@ -82,15 +83,8 @@ function configCheck(): CheckResult {
 }
 
 async function botCheck(): Promise<CheckResult> {
-  const url = process.env.BOT_DASHBOARD_URL?.trim();
-  if (!url) {
-    return {
-      status: "error",
-      message: "BOT_DASHBOARD_URL is not configured",
-    };
-  }
-
   try {
+    const url = getBotDashboardUrl();
     const res = await fetch(url, {
       cache: "no-store",
       headers: { accept: "application/json" },
@@ -116,7 +110,10 @@ async function botCheck(): Promise<CheckResult> {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireApprovedApiUser(req);
+  if ("error" in auth) return auth.error;
+
   const checks: Record<string, CheckResult> = {
     config: configCheck(),
     bot: await botCheck(),
@@ -241,12 +238,14 @@ export async function GET() {
 
   const failed = Object.values(checks).some((check) => check.status === "error");
 
-  return NextResponse.json({
-    ok: !failed,
-    checked_at: new Date().toISOString(),
-    latest_snapshot_ts: latestSnapshotTs,
-    latest_trade_ts: latestTradeTs,
-    snapshot_count: snapshotCount,
-    checks,
-  });
+  return auth.applyCookies(
+    NextResponse.json({
+      ok: !failed,
+      checked_at: new Date().toISOString(),
+      latest_snapshot_ts: latestSnapshotTs,
+      latest_trade_ts: latestTradeTs,
+      snapshot_count: snapshotCount,
+      checks,
+    })
+  );
 }

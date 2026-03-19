@@ -2,28 +2,44 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-export async function middleware(req: NextRequest) {
-  let res = NextResponse.next({
+function getSupabaseConfig() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    return null;
+  }
+
+  return { url, anonKey };
+}
+
+export async function proxy(req: NextRequest) {
+  const config = getSupabaseConfig();
+
+  if (!config) {
+    return NextResponse.json(
+      { error: "Supabase environment variables are not configured." },
+      { status: 500 }
+    );
+  }
+
+  const res = NextResponse.next({
     request: req,
   });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return req.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            req.cookies.set(name, value);
-            res.cookies.set(name, value, options);
-          });
-        },
+  const supabase = createServerClient(config.url, config.anonKey, {
+    cookies: {
+      getAll() {
+        return req.cookies.getAll();
       },
-    }
-  );
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          req.cookies.set(name, value);
+          res.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
 
   const pathname = req.nextUrl.pathname;
   const isDashboard = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
