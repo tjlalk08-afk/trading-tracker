@@ -1,8 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireApprovedApiUser } from "@/lib/requireApprovedApiUser";
 
 export const dynamic = "force-dynamic";
+
+type TradeHistoryRow = {
+  closed_at: string | null;
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function startDateFromRange(range: string) {
+  if (range === "all") return null;
+
+  const now = new Date();
+  const d = new Date(now);
+
+  if (range === "7d") d.setDate(d.getDate() - 7);
+  else if (range === "30d") d.setDate(d.getDate() - 30);
+  else d.setFullYear(d.getFullYear() - 1);
+
+  return d.toISOString().slice(0, 10);
+}
 
 export async function GET(req: NextRequest) {
   let auth: Awaited<ReturnType<typeof requireApprovedApiUser>> | null = null;
@@ -10,28 +31,13 @@ export async function GET(req: NextRequest) {
     auth = await requireApprovedApiUser(req);
     if ("error" in auth) return auth.error;
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const { searchParams } = new URL(req.url);
+    const range = (searchParams.get("range") ?? "30d").toLowerCase();
+    const limit = clamp(Number(searchParams.get("limit") ?? "500"), 1, 2000);
+    const before = searchParams.get("before");
+    const startDate = startDateFromRange(range);
 
-    if (!supabaseUrl || !supabaseKey) {
-      return auth.applyCookies(
-        NextResponse.json(
-          {
-            ok: false,
-            error:
-              "Supabase env vars are missing. Need NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
-          },
-          { status: 500 }
-        )
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const { data, error } = await supabase
+    let query = getSupabaseAdmin()
       .from("trade_history")
       .select(
         [
@@ -50,9 +56,19 @@ export async function GET(req: NextRequest) {
           "external_trade_id",
         ].join(",")
       )
-      .order("closed_at", { ascending: false })
+      .order("closed_at", { ascending: false, nullsFirst: false })
       .order("trade_day", { ascending: false })
-      .limit(1000);
+      .limit(limit + 1);
+
+    if (startDate) {
+      query = query.gte("trade_day", startDate);
+    }
+
+    if (before) {
+      query = query.lt("closed_at", before);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return auth.applyCookies(
@@ -66,10 +82,20 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const rows = (data ?? []) as TradeHistoryRow[];
+    const hasMore = rows.length > limit;
+    const trimmedRows = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor =
+      hasMore && trimmedRows.length
+        ? trimmedRows[trimmedRows.length - 1]?.closed_at ?? null
+        : null;
+
     return auth.applyCookies(
       NextResponse.json({
         ok: true,
-        data: data ?? [],
+        data: trimmedRows,
+        has_more: hasMore,
+        next_cursor: nextCursor,
       })
     );
   } catch (error: unknown) {

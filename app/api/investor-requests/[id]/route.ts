@@ -6,10 +6,6 @@ import { getSubmitterLabelsByUserId } from "@/lib/investorRequestIdentity";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const FUND_EQUITY = 7691.68;
-const TOTAL_UNITS = 10000;
-const UNIT_PRICE = FUND_EQUITY / TOTAL_UNITS;
-
 type ProfileRow = {
   role: string | null;
   approved: boolean | null;
@@ -36,9 +32,31 @@ type PostedTransactionRow = {
   to_member_name: string | null;
 };
 
-type InvestorMemberRow = {
-  id: string;
-  name: string | null;
+type ApprovedRequestResult = {
+  request_id: string;
+  member_name: string | null;
+  request_type: string | null;
+  amount: number | string | null;
+  status: string | null;
+  created_at: string | null;
+  note: string | null;
+  to_member_name: string | null;
+  created_by: string | null;
+  posted_at: string | null;
+  posted_units: number | string | null;
+  unit_price: number | string | null;
+};
+
+type AdminRpcClient = {
+  rpc: (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => {
+    single: () => Promise<{
+      data: unknown;
+      error: { message?: string } | null;
+    }>;
+  };
 };
 
 function formatDisplayDate(value: string | null | undefined) {
@@ -165,196 +183,68 @@ export async function PATCH(
       });
     }
 
-    const nowIso = new Date().toISOString();
+    const adminRpc = admin as unknown as AdminRpcClient;
 
-    const { data: completedRequest, error: approveError } = await admin
-      .from("investor_requests")
-      .update({
-        status: "Completed",
-        reviewed_by: user.id,
-        reviewed_at: nowIso,
-        completed_at: nowIso,
-      } as never)
-      .eq("id", id)
-      .select("*")
+    const { data: approvalResult, error: approvalRpcError } = await adminRpc
+      .rpc("approve_investor_request", {
+        p_request_id: id,
+        p_reviewed_by: user.id,
+      })
       .single();
 
-    if (approveError || !completedRequest) {
+    if (approvalRpcError || !approvalResult) {
       return NextResponse.json(
-        { error: approveError?.message || "Failed to approve request." },
+        { error: approvalRpcError?.message || "Failed to approve request." },
         { status: 500 }
       );
     }
 
-    const completedRequestRow = completedRequest as InvestorRequestRow | null;
+    const completedRequestRow = approvalResult as ApprovedRequestResult;
 
-    const participantNames = [
-      completedRequestRow?.member_name,
-      completedRequestRow?.to_member_name,
-    ].filter((value): value is string => Boolean(value && value.trim()));
-
-    const { data: participantMembers, error: participantMembersError } = await admin
-      .from("investor_members")
-      .select("id, name")
-      .in("name", participantNames)
-      .eq("active", true);
-
-    if (participantMembersError) {
-      return NextResponse.json(
-        { error: participantMembersError.message || "Failed to load investor members." },
-        { status: 500 }
-      );
-    }
-
-    const memberIdByName = new Map(
-      ((participantMembers as InvestorMemberRow[] | null) ?? []).map((member) => [
-        member.name ?? "",
-        member.id,
-      ])
-    );
-
-    const requestingMemberId = memberIdByName.get(completedRequestRow?.member_name ?? "");
-
-    if (!requestingMemberId) {
-      return NextResponse.json(
-        { error: "Approved request member is not linked to an active investor member." },
-        { status: 400 }
-      );
-    }
-
-    const ledgerInserts: Array<{
-      member_id: string;
-      txn_type: "deposit" | "withdrawal" | "grant";
-      amount: number;
-      units: number;
-      notes: string | null;
-      effective_at: string;
-    }> = [];
-
-    const requestType = String(completedRequestRow?.request_type ?? "").toLowerCase();
-    const amountValue = Number(completedRequestRow?.amount ?? 0);
-    const unitsValue = amountValue / UNIT_PRICE;
-
-    if (requestType === "deposit") {
-      ledgerInserts.push({
-        member_id: requestingMemberId,
-        txn_type: "deposit",
-        amount: amountValue,
-        units: unitsValue,
-        notes: completedRequestRow?.note ?? null,
-        effective_at: nowIso,
-      });
-    }
-
-    if (requestType === "withdrawal") {
-      ledgerInserts.push({
-        member_id: requestingMemberId,
-        txn_type: "withdrawal",
-        amount: amountValue,
-        units: unitsValue,
-        notes: completedRequestRow?.note ?? null,
-        effective_at: nowIso,
-      });
-    }
-
-    if (requestType === "transfer") {
-      const targetMemberId = memberIdByName.get(completedRequestRow?.to_member_name ?? "");
-
-      if (!targetMemberId) {
-        return NextResponse.json(
-          { error: "Transfer target is not linked to an active investor member." },
-          { status: 400 }
-        );
-      }
-
-      ledgerInserts.push({
-        member_id: requestingMemberId,
-        txn_type: "withdrawal",
-        amount: amountValue,
-        units: unitsValue,
-        notes: completedRequestRow?.note ?? "Transfer out",
-        effective_at: nowIso,
-      });
-      ledgerInserts.push({
-        member_id: targetMemberId,
-        txn_type: "deposit",
-        amount: amountValue,
-        units: unitsValue,
-        notes: completedRequestRow?.note ?? "Transfer in",
-        effective_at: nowIso,
-      });
-    }
-
-    if (ledgerInserts.length > 0) {
-      const { error: ledgerInsertError } = await admin
-        .from("investor_transactions")
-        .insert(ledgerInserts as never);
-
-      if (ledgerInsertError) {
-        return NextResponse.json(
-          { error: ledgerInsertError.message || "Failed to update investor ledger." },
-          { status: 500 }
-        );
-      }
-    }
-
-    const { data: postedTransaction, error: postedError } = await admin
-      .from("investor_posted_transactions")
-      .insert({
-        request_id: completedRequestRow?.id,
-        member_name: completedRequestRow?.member_name,
-        transaction_type: completedRequestRow?.request_type,
-        amount: completedRequestRow?.amount,
-        units: Number(completedRequestRow?.amount ?? 0) / UNIT_PRICE,
-        posted_by: user.id,
-        to_member_name: completedRequestRow?.to_member_name ?? null,
-      } as never)
-      .select("*")
-      .single();
-
-    if (postedError || !postedTransaction) {
-      return NextResponse.json(
-        { error: postedError?.message || "Failed to create posted transaction." },
-        { status: 500 }
-      );
-    }
-
-    const postedTransactionRow = postedTransaction as PostedTransactionRow | null;
+    const postedTransactionRow: PostedTransactionRow = {
+      member_name: completedRequestRow.member_name,
+      transaction_type: completedRequestRow.request_type,
+      amount: completedRequestRow.amount,
+      units: completedRequestRow.posted_units,
+      posted_at: completedRequestRow.posted_at,
+      to_member_name: completedRequestRow.to_member_name,
+    };
 
     await admin.from("investor_request_audit_log").insert({
-      request_id: completedRequestRow?.id,
+      request_id: completedRequestRow.request_id,
       action: "APPROVED",
       actor_user_id: user.id,
       actor_email: user.email ?? null,
       snapshot: {
         request: completedRequestRow,
         postedTransaction: postedTransactionRow,
+        unitPrice: Number(completedRequestRow.unit_price ?? 0),
       },
     } as never);
 
     return NextResponse.json({
       ok: true,
       request: {
-        id: completedRequestRow?.id,
-        member: completedRequestRow?.member_name,
+        id: completedRequestRow.request_id,
+        member: completedRequestRow.member_name,
         submittedBy:
-          (await getSubmitterLabelsByUserId([completedRequestRow?.created_by])).get(
-            completedRequestRow?.created_by ?? ""
+          (await getSubmitterLabelsByUserId([completedRequestRow.created_by])).get(
+            completedRequestRow.created_by ?? ""
           ) ?? "Unknown user",
-        type: completedRequestRow?.request_type,
-        amount: Number(completedRequestRow?.amount ?? 0),
-        status: completedRequestRow?.status,
-        createdAt: formatDisplayDate(completedRequestRow?.created_at),
-        note: completedRequestRow?.note ?? undefined,
-        transferTo: completedRequestRow?.to_member_name ?? undefined,
+        type: completedRequestRow.request_type,
+        amount: Number(completedRequestRow.amount ?? 0),
+        status: completedRequestRow.status,
+        createdAt: formatDisplayDate(completedRequestRow.created_at),
+        note: completedRequestRow.note ?? undefined,
+        transferTo: completedRequestRow.to_member_name ?? undefined,
       },
       postedTransaction: {
-        member: postedTransactionRow?.member_name,
-        type: postedTransactionRow?.transaction_type,
-        amount: Number(postedTransactionRow?.amount ?? 0),
-        units: Number(postedTransactionRow?.units ?? 0),
-        when: formatDisplayDate(postedTransactionRow?.posted_at),
-        transferTo: postedTransactionRow?.to_member_name ?? undefined,
+        member: postedTransactionRow.member_name,
+        type: postedTransactionRow.transaction_type,
+        amount: Number(postedTransactionRow.amount ?? 0),
+        units: Number(postedTransactionRow.units ?? 0),
+        when: formatDisplayDate(postedTransactionRow.posted_at),
+        transferTo: postedTransactionRow.to_member_name ?? undefined,
       },
     });
   } catch (error) {

@@ -396,7 +396,7 @@ export default function LivePage() {
         if (!cancelled) {
           timeoutId = setTimeout(() => {
             void load();
-          }, 1000);
+          }, 3000);
         }
       }
     }
@@ -501,7 +501,7 @@ export default function LivePage() {
 
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-white/45 sm:text-xs">
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
-                      Polling every 1 second
+                      Polling every 3 seconds
                     </span>
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
                       Last poll: {formatTimestamp(data?.updated)}
@@ -727,7 +727,7 @@ export default function LivePage() {
               </div>
 
               <div className="mt-4 rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,18,25,0.75),rgba(8,10,15,0.9))] px-4 py-2.5 text-xs text-white/50">
-                Live refreshes every second while this page is open. Use Compare for saved-account drift and Overview for investor-facing summaries.
+                Live refreshes every 3 seconds while this page is open. Use Trades for attribution and Overview for investor-facing summaries.
               </div>
             </div>
           </section>

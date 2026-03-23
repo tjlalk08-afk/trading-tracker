@@ -2,23 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import GlobalRefreshSnapshotButton from "@/components/GlobalRefreshSnapshotButton";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/live", label: "Live" },
-  { href: "/dashboard/symbols", label: "Symbols" },
-  { href: "/dashboard/compare", label: "Compare" },
-  { href: "/dashboard/performance", label: "Performance" },
+  { href: "/dashboard/trades", label: "Trades" },
   { href: "/dashboard/investors", label: "Investors" },
-  { href: "/dashboard/bot", label: "Bot" },
 ];
 
 const MOBILE_NAV_ITEMS = [
-  { href: "/dashboard", label: "Home" },
+  { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/live", label: "Live" },
-  { href: "/dashboard/symbols", label: "Symbols" },
-  { href: "/dashboard/performance", label: "Perf" },
-  { href: "/dashboard/bot", label: "Bot" },
+  { href: "/dashboard/trades", label: "Trades" },
+  { href: "/dashboard/investors", label: "Investors" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -113,8 +110,10 @@ export default function DashboardLayout({
           {children}
         </main>
 
+        <GlobalRefreshSnapshotButton />
+
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-700/40 bg-[#0b1016]/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur-xl xl:hidden">
-          <div className="mx-auto grid max-w-[1880px] grid-cols-5 gap-2">
+          <div className="mx-auto grid max-w-[1880px] grid-cols-4 gap-2">
             {MOBILE_NAV_ITEMS.map((item) => {
               const active = isActive(pathname, item.href);
 

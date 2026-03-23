@@ -1,8 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function GlobalRefreshSnapshotButton() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleRefresh() {
@@ -20,7 +22,7 @@ export default function GlobalRefreshSnapshotButton() {
         throw new Error(json?.error || "Failed to refresh snapshot");
       }
 
-      window.location.reload();
+      router.refresh();
     } catch (err) {
       console.error(err);
       alert("Failed to refresh snapshot");
@@ -33,9 +35,9 @@ export default function GlobalRefreshSnapshotButton() {
     <button
       onClick={handleRefresh}
       disabled={loading}
-      className="fixed bottom-6 right-6 z-50 rounded-2xl border border-emerald-400/30 bg-emerald-500/20 px-4 py-3 text-sm font-medium text-white shadow-lg backdrop-blur hover:bg-emerald-500/25 disabled:opacity-50"
+      className="fixed bottom-20 right-4 z-50 rounded-2xl border border-emerald-400/30 bg-emerald-500/20 px-4 py-3 text-sm font-medium text-white shadow-lg backdrop-blur hover:bg-emerald-500/25 disabled:opacity-50 sm:bottom-6 sm:right-6"
     >
-      {loading ? "Refreshing..." : "Refresh Snapshot"}
+      {loading ? "Refreshing..." : "Pull Snapshot"}
     </button>
   );
 }
