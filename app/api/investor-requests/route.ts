@@ -10,18 +10,25 @@ const VALID_REQUEST_TYPES = new Set(["Deposit", "Withdrawal", "Transfer"]);
 
 type InvestorRequestRow = {
   id: string;
+  member_id?: string | null;
   member_name: string | null;
   request_type: string | null;
   amount: number | string | null;
   status: string | null;
   created_at: string | null;
   note: string | null;
+  target_member_id?: string | null;
   to_member_name: string | null;
   created_by: string | null;
 };
 
+type MemberLookupRow = {
+  id: string;
+  name: string | null;
+};
+
 function formatDisplayDate(value: string | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "-";
 
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -32,6 +39,35 @@ function formatDisplayDate(value: string | null | undefined) {
     minute: "2-digit",
     second: "2-digit",
   }).format(new Date(value));
+}
+
+async function findActiveMemberById(memberId: string | null) {
+  if (!memberId) return null;
+
+  const admin = getSupabaseAdmin();
+  const { data } = await admin
+    .from("investor_members")
+    .select("id, name")
+    .eq("id", memberId)
+    .eq("active", true)
+    .maybeSingle();
+
+  return (data as MemberLookupRow | null) ?? null;
+}
+
+async function findActiveMemberByName(memberName: string | null) {
+  const name = typeof memberName === "string" ? memberName.trim() : "";
+  if (!name) return null;
+
+  const admin = getSupabaseAdmin();
+  const { data } = await admin
+    .from("investor_members")
+    .select("id, name")
+    .eq("name", name)
+    .eq("active", true)
+    .maybeSingle();
+
+  return (data as MemberLookupRow | null) ?? null;
 }
 
 export async function POST(req: Request) {
@@ -56,13 +92,20 @@ export async function POST(req: Request) {
     }
 
     const identity = await resolveInvestorRequestIdentity(user);
-
     const body = await req.json();
 
+    const requestedMemberId =
+      typeof body?.memberId === "string" && body.memberId.trim().length > 0
+        ? body.memberId.trim()
+        : null;
     const requestedMemberName = String(body?.memberName || "").trim();
     const requestType = String(body?.requestType || "").trim();
     const amount = Number(body?.amount);
-    const transferToMember =
+    const requestedTargetMemberId =
+      typeof body?.targetMemberId === "string" && body.targetMemberId.trim().length > 0
+        ? body.targetMemberId.trim()
+        : null;
+    const requestedTargetMemberName =
       typeof body?.transferToMember === "string" && body.transferToMember.trim().length > 0
         ? body.transferToMember.trim()
         : null;
@@ -71,23 +114,29 @@ export async function POST(req: Request) {
         ? body.note.trim()
         : null;
 
-    const memberName = identity.isAdmin
-      ? requestedMemberName
-      : identity.matchedMemberName ?? "";
+    const member =
+      (await findActiveMemberById(identity.isAdmin ? requestedMemberId : identity.investorMemberId)) ??
+      (identity.isAdmin ? await findActiveMemberByName(requestedMemberName) : null);
 
-    if (!memberName) {
+    if (!member) {
       return NextResponse.json(
         {
           error: identity.isAdmin
-            ? "Member name is required."
+            ? "Choose a valid active member."
             : "Your account is not linked to an investor member yet.",
         },
         { status: 400 }
       );
     }
 
-    if (!identity.isAdmin && requestedMemberName && requestedMemberName !== memberName) {
-      return NextResponse.json({ error: "Member name is required." }, { status: 400 });
+    if (!identity.isAdmin) {
+      if (requestedMemberId && requestedMemberId !== member.id) {
+        return NextResponse.json({ error: "Choose a valid active member." }, { status: 400 });
+      }
+
+      if (requestedMemberName && requestedMemberName !== member.name) {
+        return NextResponse.json({ error: "Choose a valid active member." }, { status: 400 });
+      }
     }
 
     if (!VALID_REQUEST_TYPES.has(requestType)) {
@@ -98,12 +147,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Amount must be greater than 0." }, { status: 400 });
     }
 
+    let transferTarget: MemberLookupRow | null = null;
+
     if (requestType === "Transfer") {
-      if (!transferToMember) {
+      transferTarget =
+        (await findActiveMemberById(requestedTargetMemberId)) ??
+        (await findActiveMemberByName(requestedTargetMemberName));
+
+      if (!transferTarget) {
         return NextResponse.json({ error: "Transfer To is required." }, { status: 400 });
       }
 
-      if (transferToMember === memberName) {
+      if (transferTarget.id === member.id) {
         return NextResponse.json(
           { error: "Transfer To must be a different member." },
           { status: 400 }
@@ -114,13 +169,15 @@ export async function POST(req: Request) {
     const { data: insertedRequest, error: insertError } = await admin
       .from("investor_requests")
       .insert({
-        member_name: memberName,
+        member_id: member.id,
+        member_name: member.name,
         request_type: requestType,
         amount,
         note,
         status: "Pending",
         created_by: user.id,
-        to_member_name: requestType === "Transfer" ? transferToMember : null,
+        target_member_id: requestType === "Transfer" ? transferTarget?.id ?? null : null,
+        to_member_name: requestType === "Transfer" ? transferTarget?.name ?? null : null,
       } as never)
       .select("*")
       .single();
