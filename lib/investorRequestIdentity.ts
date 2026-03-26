@@ -4,9 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 type ProfileIdentityRow = {
   role: string | null;
   approved: boolean | null;
-  name?: string | null;
-  full_name?: string | null;
-  display_name?: string | null;
+  email?: string | null;
   investor_member_id?: string | null;
 };
 
@@ -14,12 +12,22 @@ function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function uniqueStrings(values: unknown[]) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => clean(value))
+        .filter((value) => value.length > 0)
+    )
+  );
+}
+
 export async function resolveInvestorRequestIdentity(user: User) {
   const admin = getSupabaseAdmin();
 
   const { data: profile } = await admin
     .from("profiles")
-    .select("role, approved, name, full_name, display_name, investor_member_id")
+    .select("role, approved, email, investor_member_id")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -29,15 +37,13 @@ export async function resolveInvestorRequestIdentity(user: User) {
     String(profileRow.role ?? "").toLowerCase() === "admin";
 
   const submitterLabel =
-    clean(profileRow?.full_name) ||
-    clean(profileRow?.display_name) ||
-    clean(profileRow?.name) ||
     clean(user.user_metadata?.full_name) ||
     clean(user.user_metadata?.name) ||
+    clean(profileRow?.email) ||
     clean(user.email) ||
     "Unknown user";
 
-  const investorMemberId = clean(profileRow?.investor_member_id);
+  let investorMemberId = clean(profileRow?.investor_member_id);
   let matchedMemberName: string | null = null;
 
   if (investorMemberId) {
@@ -49,6 +55,38 @@ export async function resolveInvestorRequestIdentity(user: User) {
       .maybeSingle();
 
     matchedMemberName = clean((member as { name?: string | null } | null)?.name) || null;
+  }
+
+  if (!investorMemberId) {
+    const candidateNames = uniqueStrings([
+      user.user_metadata?.full_name,
+      user.user_metadata?.name,
+    ]);
+
+    if (candidateNames.length > 0) {
+      const { data: matches } = await admin
+        .from("investor_members")
+        .select("id, name")
+        .eq("active", true)
+        .in("name", candidateNames);
+
+      const activeMatches = ((matches as Array<{ id?: string | null; name?: string | null }> | null) ?? [])
+        .map((row) => ({
+          id: clean(row.id),
+          name: clean(row.name),
+        }))
+        .filter((row) => row.id && row.name);
+
+      if (activeMatches.length === 1) {
+        investorMemberId = activeMatches[0].id;
+        matchedMemberName = activeMatches[0].name;
+
+        await admin
+          .from("profiles")
+          .update({ investor_member_id: investorMemberId } as never)
+          .eq("id", user.id);
+      }
+    }
   }
 
   return {
