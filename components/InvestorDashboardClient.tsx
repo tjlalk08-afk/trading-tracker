@@ -68,6 +68,7 @@ type InvestorDashboardClientProps = {
   initialRequests: CapitalRequestRow[];
   initialPostedTransactions: PostedTransactionRow[];
   isAdmin: boolean;
+  currentMemberId?: string | null;
   currentMemberName?: string | null;
 };
 
@@ -228,9 +229,11 @@ export default function InvestorDashboardClient({
   initialRequests,
   initialPostedTransactions,
   isAdmin,
+  currentMemberId,
   currentMemberName,
 }: InvestorDashboardClientProps) {
   const router = useRouter();
+  const isLinkedInvestor = isAdmin || Boolean(currentMemberId);
 
   const [requests, setRequests] = useState<CapitalRequestRow[]>(initialRequests);
   const [postedTransactions, setPostedTransactions] = useState<PostedTransactionRow[]>(
@@ -250,8 +253,8 @@ export default function InvestorDashboardClient({
   }, [initialData?.rows]);
 
   const [activeAction, setActiveAction] = useState<CapitalRequestType | null>(null);
-  const [requestMember, setRequestMember] = useState<string>(currentMemberName ?? normalizedMembers[0]?.name ?? "");
-  const [requestTransferTo, setRequestTransferTo] = useState<string>("");
+  const [requestMemberId, setRequestMemberId] = useState<string>(currentMemberId ?? normalizedMembers[0]?.id ?? "");
+  const [requestTransferToMemberId, setRequestTransferToMemberId] = useState<string>("");
   const [requestAmount, setRequestAmount] = useState<string>("");
   const [requestNote, setRequestNote] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -267,21 +270,21 @@ export default function InvestorDashboardClient({
 
   useEffect(() => {
     if (!normalizedMembers.length) {
-      setRequestMember(currentMemberName ?? "");
-      setRequestTransferTo("");
+      setRequestMemberId(currentMemberId ?? "");
+      setRequestTransferToMemberId("");
       return;
     }
 
-    setRequestMember((current) => {
-      if (!isAdmin && currentMemberName) {
-        return currentMemberName;
+    setRequestMemberId((current) => {
+      if (!isAdmin && currentMemberId) {
+        return currentMemberId;
       }
-      if (current && normalizedMembers.some((member) => member.name === current)) {
+      if (current && normalizedMembers.some((member) => member.id === current)) {
         return current;
       }
-      return normalizedMembers[0]?.name ?? "";
+      return normalizedMembers[0]?.id ?? "";
     });
-  }, [currentMemberName, isAdmin, normalizedMembers]);
+  }, [currentMemberId, isAdmin, normalizedMembers]);
 
   const members = normalizedMembers;
   const fundEquity = pickNumber(initialData?.fundEquity, initialData?.equity, 0);
@@ -318,22 +321,30 @@ export default function InvestorDashboardClient({
   });
 
   const memberOptions = members.filter((m) => m.role === "INVESTOR" || m.role === "OPERATOR");
-  const transferOptions = memberOptions.filter((m) => m.name !== requestMember);
+  const transferOptions = memberOptions.filter((m) => m.id !== requestMemberId);
   const ownershipLoadError = initialData?.loadError ?? null;
+  const requestMemberName =
+    memberOptions.find((member) => member.id === requestMemberId)?.name ?? currentMemberName ?? "";
 
   function openRequestForm(type: CapitalRequestType) {
+    if (!isLinkedInvestor) {
+      setActiveAction(null);
+      setSubmitError(null);
+      return;
+    }
+
     setActiveAction(type);
     setRequestAmount("");
     setRequestNote("");
     setSubmitError(null);
 
-    const currentMember = requestMember || memberOptions[0]?.name || "";
+    const currentMemberIdValue = requestMemberId || memberOptions[0]?.id || "";
 
     if (type === "Transfer") {
-      const firstOther = memberOptions.find((m) => m.name !== currentMember)?.name ?? "";
-      setRequestTransferTo(firstOther);
+      const firstOther = memberOptions.find((m) => m.id !== currentMemberIdValue)?.id ?? "";
+      setRequestTransferToMemberId(firstOther);
     } else {
-      setRequestTransferTo("");
+      setRequestTransferToMemberId("");
     }
   }
 
@@ -341,7 +352,7 @@ export default function InvestorDashboardClient({
     setActiveAction(null);
     setRequestAmount("");
     setRequestNote("");
-    setRequestTransferTo("");
+    setRequestTransferToMemberId("");
     setSubmitError(null);
   }
 
@@ -351,18 +362,18 @@ export default function InvestorDashboardClient({
     if (!activeAction || isSubmitting) return;
 
     const amountNumber = Number(requestAmount);
-    if (!requestMember || !Number.isFinite(amountNumber) || amountNumber <= 0) {
+    if (!requestMemberId || !Number.isFinite(amountNumber) || amountNumber <= 0) {
       setSubmitError("Enter a valid request amount.");
       return;
     }
 
     if (activeAction === "Transfer") {
-      if (!requestTransferTo) {
+      if (!requestTransferToMemberId) {
         setSubmitError("Choose who the transfer is going to.");
         return;
       }
 
-      if (requestTransferTo === requestMember) {
+      if (requestTransferToMemberId === requestMemberId) {
         setSubmitError("Transfer To must be a different member.");
         return;
       }
@@ -378,11 +389,16 @@ export default function InvestorDashboardClient({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          memberName: requestMember,
+          memberId: requestMemberId,
+          memberName: requestMemberName,
           requestType: activeAction,
           amount: amountNumber,
           note: requestNote,
-          transferToMember: activeAction === "Transfer" ? requestTransferTo : null,
+          targetMemberId: activeAction === "Transfer" ? requestTransferToMemberId : null,
+          transferToMember:
+            activeAction === "Transfer"
+              ? transferOptions.find((member) => member.id === requestTransferToMemberId)?.name ?? null
+              : null,
         }),
       });
 
@@ -437,7 +453,7 @@ export default function InvestorDashboardClient({
           value={number2(totalUnits)}
           sub="Ownership base across all members"
         />
-        <StatCard title="Unit Price" value={money(unitPrice)} sub="Fund equity ÷ total units" />
+        <StatCard title="Unit Price" value={money(unitPrice)} sub="Fund equity / total units" />
         <StatCard
           title="Net Contributed Capital"
           value={money(netContributedCapital)}
@@ -473,7 +489,13 @@ export default function InvestorDashboardClient({
               </ActionButton>
             </div>
 
-            {activeAction ? (
+            {!isLinkedInvestor ? (
+              <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-200">
+                Your account is not linked to an investor member yet, so money requests are disabled until an admin links your profile.
+              </div>
+            ) : null}
+
+            {activeAction && isLinkedInvestor ? (
               <form
                 onSubmit={submitRequest}
                 className="mt-3 space-y-3 rounded-xl border border-white/10 bg-black/20 p-3.5"
@@ -485,30 +507,33 @@ export default function InvestorDashboardClient({
                     <div className="text-xs uppercase tracking-[0.16em] text-white/45">Member</div>
                     {isAdmin ? (
                       <select
-                        value={requestMember}
+                        value={requestMemberId}
                         onChange={(e) => {
-                          const nextMember = e.target.value;
-                          setRequestMember(nextMember);
+                          const nextMemberId = e.target.value;
+                          setRequestMemberId(nextMemberId);
 
                           if (activeAction === "Transfer") {
                             const firstOther =
-                              memberOptions.find((m) => m.name !== nextMember)?.name ?? "";
-                            if (!requestTransferTo || requestTransferTo === nextMember) {
-                              setRequestTransferTo(firstOther);
+                              memberOptions.find((m) => m.id !== nextMemberId)?.id ?? "";
+                            if (
+                              !requestTransferToMemberId ||
+                              requestTransferToMemberId === nextMemberId
+                            ) {
+                              setRequestTransferToMemberId(firstOther);
                             }
                           }
                         }}
                         className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none"
                       >
                         {memberOptions.map((member) => (
-                          <option key={member.name} value={member.name} className="bg-[#0b1118]">
+                          <option key={member.id} value={member.id} className="bg-[#0b1118]">
                             {member.name}
                           </option>
                         ))}
                       </select>
                     ) : (
                       <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white">
-                        {currentMemberName ?? "Contact an admin to link your investor member"}
+                        {requestMemberName || "Contact an admin to link your investor member"}
                       </div>
                     )}
                   </label>
@@ -531,12 +556,12 @@ export default function InvestorDashboardClient({
                   <label className="block space-y-1.5">
                     <div className="text-xs uppercase tracking-[0.16em] text-white/45">Transfer To</div>
                     <select
-                      value={requestTransferTo}
-                      onChange={(e) => setRequestTransferTo(e.target.value)}
+                      value={requestTransferToMemberId}
+                      onChange={(e) => setRequestTransferToMemberId(e.target.value)}
                       className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none"
                     >
                       {transferOptions.map((member) => (
-                        <option key={member.name} value={member.name} className="bg-[#0b1118]">
+                        <option key={member.id} value={member.id} className="bg-[#0b1118]">
                           {member.name}
                         </option>
                       ))}
@@ -555,12 +580,6 @@ export default function InvestorDashboardClient({
                   />
                 </label>
 
-                {!isAdmin && !currentMemberName ? (
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-                    Your account is not linked to an investor member yet. Ask an admin to link it before submitting requests.
-                  </div>
-                ) : null}
-
                 {submitError ? (
                   <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
                     {submitError}
@@ -570,7 +589,7 @@ export default function InvestorDashboardClient({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="submit"
-                    disabled={isSubmitting || (!isAdmin && !currentMemberName)}
+                    disabled={isSubmitting || !isLinkedInvestor}
                     className="rounded-xl border border-emerald-400/20 bg-emerald-500/12 px-4 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/18 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSubmitting ? "Submitting..." : "Submit Request"}
