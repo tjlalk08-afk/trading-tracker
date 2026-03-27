@@ -3,7 +3,11 @@
   "crons": [
     {
       "path": "/api/cron/poll-bot",
-      "schedule": "*/5 13-22 * * 1-5"
+      "schedule": "45 15 * * 1-5"
+    },
+    {
+      "path": "/api/cron/poll-bot",
+      "schedule": "45 16 * * 1-5"
     },
     {
       "path": "/api/cron/daily-snapshot",

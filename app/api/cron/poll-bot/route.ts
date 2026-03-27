@@ -6,6 +6,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type JsonRecord = Record<string, unknown>;
+const TARGET_TIMEZONE = "America/Chicago";
+const TARGET_HOUR = 10;
+const TARGET_MINUTE = 45;
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -60,14 +63,64 @@ function readCronSecret(req: Request) {
   return searchParams.get("secret");
 }
 
+function getChicagoParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TARGET_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const map = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  );
+
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    weekday: map.weekday,
+    hour: Number(map.hour),
+    minute: Number(map.minute),
+    second: Number(map.second),
+  };
+}
+
 export async function GET(req: Request) {
   const stage = { at: "START" as string };
 
   try {
     const secret = readCronSecret(req);
+    const force = new URL(req.url).searchParams.get("force") === "1";
 
     if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    }
+
+    const chicagoNow = getChicagoParts();
+    const isWeekday = chicagoNow.weekday !== "Sat" && chicagoNow.weekday !== "Sun";
+    const isTargetTime =
+      chicagoNow.hour === TARGET_HOUR && chicagoNow.minute === TARGET_MINUTE;
+
+    if (!force && (!isWeekday || !isTargetTime)) {
+      return NextResponse.json({
+        ok: true,
+        skipped: true,
+        reason: "outside-target-window",
+        chicagoNow,
+        target: {
+          timezone: TARGET_TIMEZONE,
+          hour: TARGET_HOUR,
+          minute: TARGET_MINUTE,
+        },
+      });
     }
 
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
