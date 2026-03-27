@@ -37,10 +37,15 @@ export default function InvestorRequestForms({ members }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          member_id: memberId,
-          request_type: openType,
+          memberId,
+          requestType:
+            openType === "deposit"
+              ? "Deposit"
+              : openType === "withdrawal"
+              ? "Withdrawal"
+              : "Transfer",
           amount: amount ? Number(amount) : null,
-          target_member_id: openType === "transfer" ? targetMemberId || null : null,
+          targetMemberId: openType === "transfer" ? targetMemberId || null : null,
           note: note || null,
         }),
       });
@@ -57,8 +62,8 @@ export default function InvestorRequestForms({ members }: Props) {
       setNote("");
       setOpenType(null);
       window.location.reload();
-    } catch (err: any) {
-      setMessage(err.message || "Something went wrong.");
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setSubmitting(false);
     }

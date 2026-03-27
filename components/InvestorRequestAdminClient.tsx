@@ -17,6 +17,7 @@ type CapitalRequestRow = {
   status: CapitalRequestStatus;
   createdAt: string;
   note?: string;
+  transferTo?: string;
 };
 
 type PostedTransactionRow = {
@@ -25,6 +26,7 @@ type PostedTransactionRow = {
   amount: number;
   units: number;
   when: string;
+  transferTo?: string;
 };
 
 type InvestorRequestAdminClientProps = {
@@ -278,6 +280,11 @@ export default function InvestorRequestAdminClient({
                             Submitted by: <span className="font-medium text-white">{request.submittedBy}</span>
                           </span>
                         ) : null}
+                        {request.type === "Transfer" && request.transferTo ? (
+                          <span>
+                            To: <span className="font-medium text-white">{request.transferTo}</span>
+                          </span>
+                        ) : null}
                         <span>
                           Created: <span className="font-medium text-white">{request.createdAt}</span>
                         </span>
@@ -335,6 +342,7 @@ export default function InvestorRequestAdminClient({
                     <th className="px-4 py-3 font-medium">Member</th>
                     <th className="px-4 py-3 font-medium">Submitted By</th>
                     <th className="px-4 py-3 font-medium">Type</th>
+                    <th className="px-4 py-3 font-medium">To</th>
                     <th className="px-4 py-3 font-medium text-right">Amount</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Created</th>
@@ -354,6 +362,7 @@ export default function InvestorRequestAdminClient({
                           {request.type}
                         </div>
                       </td>
+                      <td className="px-4 py-4">{request.transferTo ?? "-"}</td>
                       <td className="px-4 py-4 text-right">{money(request.amount)}</td>
                       <td className="px-4 py-4">
                         <div
@@ -395,6 +404,7 @@ export default function InvestorRequestAdminClient({
                 <tr className="border-b border-white/10 text-white/45">
                   <th className="px-4 py-3 font-medium">Member</th>
                   <th className="px-4 py-3 font-medium">Type</th>
+                  <th className="px-4 py-3 font-medium">To</th>
                   <th className="px-4 py-3 font-medium text-right">Amount</th>
                   <th className="px-4 py-3 font-medium text-right">Units</th>
                   <th className="px-4 py-3 font-medium">When</th>
@@ -413,6 +423,7 @@ export default function InvestorRequestAdminClient({
                         {tx.type}
                       </div>
                     </td>
+                    <td className="px-4 py-4">{tx.transferTo ?? "-"}</td>
                     <td className="px-4 py-4 text-right">{money(tx.amount)}</td>
                     <td className="px-4 py-4 text-right">{number2(tx.units)}</td>
                     <td className="px-4 py-4 text-white/65">{tx.when}</td>

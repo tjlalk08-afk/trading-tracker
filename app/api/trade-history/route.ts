@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
     const range = (searchParams.get("range") ?? "30d").toLowerCase();
     const limit = clamp(Number(searchParams.get("limit") ?? "500"), 1, 2000);
     const before = searchParams.get("before");
+    const mode = (searchParams.get("mode") ?? "live").toLowerCase() === "paper" ? "paper" : "live";
     const startDate = startDateFromRange(range);
 
     let query = getSupabaseAdmin()
@@ -56,6 +57,7 @@ export async function GET(req: NextRequest) {
           "external_trade_id",
         ].join(",")
       )
+      .eq("mode", mode)
       .order("closed_at", { ascending: false, nullsFirst: false })
       .order("trade_day", { ascending: false })
       .limit(limit + 1);

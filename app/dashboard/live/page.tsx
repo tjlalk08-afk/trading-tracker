@@ -33,6 +33,7 @@ type ClosedTrade = {
 };
 
 type DashboardData = {
+  mode?: string | null;
   updated?: string | null;
   cash?: number | string | null;
   equity?: number | string | null;
@@ -445,6 +446,8 @@ export default function LivePage() {
     [closedLive, closedTest],
   );
 
+  const isPaperMode = String(data?.mode ?? "").toLowerCase() === "paper";
+
   if (loading && !data) {
     return (
       <div className="min-h-screen bg-black text-white">
@@ -524,6 +527,17 @@ export default function LivePage() {
                     Live Feed Error
                   </div>
                   <div className="mt-2 text-sm text-red-200">{error}</div>
+                </div>
+              ) : null}
+
+              {isPaperMode ? (
+                <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/8 p-4 text-center">
+                  <div className="text-sm font-medium uppercase tracking-[0.2em] text-amber-300">
+                    Paper Session Detected
+                  </div>
+                  <div className="mt-2 text-sm text-amber-100">
+                    The current upstream feed looks like paper trading. Use the Paper page for the separated view.
+                  </div>
                 </div>
               ) : null}
 

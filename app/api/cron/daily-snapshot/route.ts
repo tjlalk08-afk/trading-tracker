@@ -372,6 +372,7 @@ export async function GET(request: NextRequest) {
   const { data: latestSnapshot, error: latestSnapshotError } = await supabaseAdmin
     .from("dashboard_snapshots")
     .select("id, snapshot_ts, created_at")
+    .eq("mode", "live")
     .order("snapshot_ts", { ascending: false })
     .limit(1)
     .maybeSingle();

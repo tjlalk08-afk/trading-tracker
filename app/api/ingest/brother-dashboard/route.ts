@@ -70,6 +70,7 @@ type TradeHistoryInsert = {
   opened_at: string | null;
   closed_at: string;
   source: string;
+  mode: "live" | "paper";
   external_trade_id: string;
 };
 
@@ -211,11 +212,21 @@ function buildSnapshotRow(upstream: JsonRecord) {
   const equity =
     toNumberValue(payload.equity) ??
     liveEquity + testEquity;
+  const directEquity = toNumberValue(payload.equity);
+  const directCash = toNumberValue(payload.cash);
+  const detectedMode: "live" | "paper" =
+    directEquity === 10000 ||
+    directCash === 10000 ||
+    (liveEquity === 0 && testEquity === 10000)
+      ? "paper"
+      : "live";
 
   return {
+    mode: detectedMode,
     snapshotTs,
     snapshotDate: dateOnly(snapshotTs),
     row: {
+      mode: detectedMode,
       source: "brother_dashboard",
       snapshot_ts: snapshotTs,
       updated_text: updatedText,
@@ -246,6 +257,7 @@ function buildSnapshotRow(upstream: JsonRecord) {
 function normalizeTrade(
   rawTrade: unknown,
   mode: "live" | "test",
+  snapshotMode: "live" | "paper",
   snapshotDate: string,
 ): TradeHistoryInsert | null {
   if (!isRecord(rawTrade)) return null;
@@ -296,12 +308,14 @@ function normalizeTrade(
     opened_at: openedAt,
     closed_at: closedAt,
     source,
+    mode: snapshotMode === "paper" ? "paper" : mode === "test" ? "paper" : "live",
     external_trade_id: externalTradeId,
   };
 }
 
 function extractCompletedTrades(
   upstream: JsonRecord,
+  snapshotMode: "live" | "paper",
   snapshotDate: string,
 ): TradeHistoryInsert[] {
   const payload = asRecord(upstream.data);
@@ -315,8 +329,8 @@ function extractCompletedTrades(
     : [];
 
   const normalized = [
-    ...liveRaw.map((trade) => normalizeTrade(trade, "live", snapshotDate)),
-    ...testRaw.map((trade) => normalizeTrade(trade, "test", snapshotDate)),
+    ...liveRaw.map((trade) => normalizeTrade(trade, "live", snapshotMode, snapshotDate)),
+    ...testRaw.map((trade) => normalizeTrade(trade, "test", snapshotMode, snapshotDate)),
   ].filter((trade): trade is TradeHistoryInsert => trade !== null);
 
   const deduped = new Map<string, TradeHistoryInsert>();
@@ -345,7 +359,7 @@ async function handleIngest() {
 
   const savedSnapshot = insertedSnapshot as InsertedSnapshotRow | null;
 
-  const trades = extractCompletedTrades(upstream, snapshot.snapshotDate);
+  const trades = extractCompletedTrades(upstream, snapshot.mode, snapshot.snapshotDate);
 
   let upsertedTrades = 0;
 
@@ -362,6 +376,7 @@ async function handleIngest() {
       opened_at: trade.opened_at,
       closed_at: trade.closed_at,
       source: trade.source,
+      mode: trade.mode,
       external_trade_id: trade.external_trade_id,
     }));
 
@@ -383,6 +398,7 @@ async function handleIngest() {
     message: "Snapshot saved and trades ingested",
     snapshot_id: savedSnapshot?.id ?? null,
     snapshot_ts: snapshot.snapshotTs,
+    mode: snapshot.mode,
     completed_trades_found: trades.length,
     completed_trades_upserted: upsertedTrades,
     data: savedSnapshot,

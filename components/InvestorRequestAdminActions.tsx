@@ -5,18 +5,16 @@ import { useState } from "react";
 type Props = {
   requestId: string;
   status: string;
-  requestType: string;
 };
 
 export default function InvestorRequestAdminActions({
   requestId,
   status,
-  requestType,
 }: Props) {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
-  async function runAction(action: "approve" | "reject" | "complete") {
+  async function runAction(action: "approve" | "decline") {
     setLoadingAction(action);
     setMessage("");
 
@@ -35,14 +33,15 @@ export default function InvestorRequestAdminActions({
 
       setMessage(`${action}d successfully`);
       window.location.reload();
-    } catch (err: any) {
-      setMessage(err.message || "Something went wrong");
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoadingAction(null);
     }
   }
 
-  const isDone = status === "completed" || status === "rejected";
+  const normalizedStatus = status.toLowerCase();
+  const isDone = normalizedStatus === "completed" || normalizedStatus === "declined";
 
   return (
     <div className="space-y-2">
@@ -59,30 +58,14 @@ export default function InvestorRequestAdminActions({
 
         {!isDone && (
           <button
-            onClick={() => runAction("reject")}
+            onClick={() => runAction("decline")}
             disabled={!!loadingAction}
             className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/15 disabled:opacity-60"
           >
-            {loadingAction === "reject" ? "Rejecting..." : "Reject"}
-          </button>
-        )}
-
-        {!isDone && requestType !== "transfer" && (
-          <button
-            onClick={() => runAction("complete")}
-            disabled={!!loadingAction}
-            className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-60"
-          >
-            {loadingAction === "complete" ? "Completing..." : "Complete"}
+            {loadingAction === "decline" ? "Declining..." : "Decline"}
           </button>
         )}
       </div>
-
-      {requestType === "transfer" && !isDone && (
-        <div className="text-xs text-yellow-300">
-          Transfer completion not wired yet.
-        </div>
-      )}
 
       {message && <div className="text-xs text-neutral-400">{message}</div>}
     </div>

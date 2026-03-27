@@ -48,6 +48,7 @@ export async function getInvestorPnlData() {
   const { data: latestSnapshot, error: snapshotError } = await supabase
     .from("dashboard_snapshots")
     .select("*")
+    .eq("mode", "live")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

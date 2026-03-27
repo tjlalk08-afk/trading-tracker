@@ -11,10 +11,14 @@ export async function GET(req: NextRequest) {
     auth = await requireApprovedApiUser(req);
     if ("error" in auth) return auth.error;
 
+    const { searchParams } = new URL(req.url);
+    const mode = (searchParams.get("mode") ?? "live").toLowerCase() === "paper" ? "paper" : "live";
+
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("dashboard_snapshots")
       .select("*")
+      .eq("mode", mode)
       .order("snapshot_ts", { ascending: false })
       .limit(1)
       .maybeSingle();

@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
     const days = Number(searchParams.get("days") ?? "");
     const limit = clamp(Number(searchParams.get("limit") ?? "2000"), 1, 5000);
     const before = searchParams.get("before");
+    const mode = (searchParams.get("mode") ?? "live").toLowerCase() === "paper" ? "paper" : "live";
 
     let query = getSupabaseAdmin()
       .from("dashboard_snapshots")
@@ -46,6 +47,7 @@ export async function GET(req: NextRequest) {
         test_equity,
         created_at
       `)
+      .eq("mode", mode)
       .order("snapshot_ts", { ascending: true })
       .limit(limit + 1);
 

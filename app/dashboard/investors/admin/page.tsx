@@ -37,7 +37,7 @@ type PostedTransactionRow = {
 };
 
 function formatDisplayDate(value: string | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "-";
 
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
