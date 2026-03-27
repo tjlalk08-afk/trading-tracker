@@ -36,11 +36,27 @@ export async function GET(req: NextRequest) {
 
     const upstream = await res.json();
 
+    const payload =
+      typeof upstream?.data === "object" && upstream?.data !== null ? upstream.data : upstream;
+    const directEquity = Number((payload as Record<string, unknown>)?.equity ?? NaN);
+    const directCash = Number((payload as Record<string, unknown>)?.cash ?? NaN);
+    const liveEquity = Number((payload as Record<string, unknown>)?.live_equity ?? NaN);
+    const testEquity = Number((payload as Record<string, unknown>)?.test_equity ?? NaN);
+    const mode =
+      directEquity === 10000 ||
+      directCash === 10000 ||
+      (liveEquity === 0 && testEquity === 10000)
+        ? "paper"
+        : "live";
+
     return auth.applyCookies(
       NextResponse.json(
         {
           ok: upstream?.ok ?? true,
-          data: upstream?.data ?? upstream,
+          data: {
+            ...(payload as Record<string, unknown>),
+            mode,
+          },
           ts: new Date().toISOString(),
         },
         {
