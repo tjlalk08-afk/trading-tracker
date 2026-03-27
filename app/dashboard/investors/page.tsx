@@ -18,12 +18,14 @@ type ProfileRow = {
 
 type InvestorRequestRow = {
   id: string;
+  member_id?: string | null;
   member_name: string | null;
   request_type: string | null;
   amount: number | string | null;
   status: string | null;
   note: string | null;
   created_at: string | null;
+  target_member_id?: string | null;
   to_member_name: string | null;
   created_by: string | null;
 };
@@ -130,12 +132,18 @@ export default async function InvestorsPage() {
   let requestsQuery = admin
     .from("investor_requests")
     .select(
-      "id, member_name, request_type, amount, status, note, created_at, created_by, to_member_name"
+      "id, member_id, member_name, request_type, amount, status, note, created_at, created_by, target_member_id, to_member_name"
     )
     .order("created_at", { ascending: false });
 
   if (!isAdmin) {
-    requestsQuery = requestsQuery.eq("created_by", user.id);
+    if (identity.investorMemberId) {
+      requestsQuery = requestsQuery.or(
+        `created_by.eq.${user.id},member_id.eq.${identity.investorMemberId},target_member_id.eq.${identity.investorMemberId}`
+      );
+    } else {
+      requestsQuery = requestsQuery.eq("created_by", user.id);
+    }
   }
 
   const { data: requestRows } = await requestsQuery;
@@ -180,6 +188,7 @@ export default async function InvestorsPage() {
       initialRequests={initialRequests}
       initialPostedTransactions={initialPostedTransactions}
       isAdmin={isAdmin}
+      currentMemberId={identity.investorMemberId}
       currentMemberName={identity.matchedMemberName}
     />
   );
