@@ -2,16 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+type BotDashboardData = Record<string, unknown>;
+
 type BotPayload = {
   ok: boolean;
-  data?: any;
+  data?: BotDashboardData;
   ts?: string;
   error?: string;
   status?: number;
 };
 
 export default function BotDashboardClient({ initial }: { initial: BotPayload }) {
-  const [payload, setPayload] = useState<BotPayload>(initial);
+  const [, setPayload] = useState<BotPayload>(initial);
   const [tick, setTick] = useState(0);
 
   // Your legacy UI URL (the one that shows the full dashboard)
@@ -33,8 +35,13 @@ export default function BotDashboardClient({ initial }: { initial: BotPayload })
         const res = await fetch("/api/bot/dashboard", { cache: "no-store" });
         const json = await res.json();
         if (!cancelled) setPayload(json);
-      } catch (e: any) {
-        if (!cancelled) setPayload({ ok: false, error: e?.message ?? "fetch failed" });
+      } catch (error: unknown) {
+        if (!cancelled) {
+          setPayload({
+            ok: false,
+            error: error instanceof Error ? error.message : "fetch failed",
+          });
+        }
       }
     })();
     return () => {

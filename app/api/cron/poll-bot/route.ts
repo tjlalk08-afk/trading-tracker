@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getBotDashboardUrl } from "@/lib/botDashboardUrl";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type JsonRecord = Record<string, unknown>;
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function msg(e: any) {
-  return e?.message ?? String(e);
+function msg(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
-function isRetryable(err: any) {
-  const m = msg(err).toLowerCase();
+function isRetryable(error: unknown) {
+  const m = msg(error).toLowerCase();
   return (
     m.includes("getaddrinfo") ||
     m.includes("enotfound") ||
@@ -26,13 +29,13 @@ function isRetryable(err: any) {
 }
 
 async function withRetry<T>(fn: () => Promise<T>, tries = 5) {
-  let last: any = null;
+  let last: unknown = null;
   for (let i = 0; i < tries; i++) {
     try {
       return await fn();
-    } catch (e: any) {
-      last = e;
-      if (!isRetryable(e) || i === tries - 1) throw e;
+    } catch (error: unknown) {
+      last = error;
+      if (!isRetryable(error) || i === tries - 1) throw error;
       const base = 250 * Math.pow(2, i);
       const jitter = Math.floor(Math.random() * 200);
       await sleep(base + jitter);
@@ -41,18 +44,27 @@ async function withRetry<T>(fn: () => Promise<T>, tries = 5) {
   throw last;
 }
 
-function n(v: any): number | null {
-  if (v === null || v === undefined || v === "") return null;
-  const x = Number(v);
+function n(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const x = Number(value);
   return Number.isFinite(x) ? x : null;
+}
+
+function readCronSecret(req: Request) {
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.slice(7).trim();
+  }
+
+  const { searchParams } = new URL(req.url);
+  return searchParams.get("secret");
 }
 
 export async function GET(req: Request) {
   const stage = { at: "START" as string };
 
   try {
-    const { searchParams } = new URL(req.url);
-    const secret = searchParams.get("secret");
+    const secret = readCronSecret(req);
 
     if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -87,13 +99,21 @@ export async function GET(req: Request) {
 
     // ---- BOT FETCH ----
     stage.at = "BOT_FETCH";
-    const payload = await withRetry(async () => {
-      const r = await fetch("https://ngtdashboard.com/api/bot/dashboard", { cache: "no-store" });
+    const payload = await withRetry<JsonRecord>(async () => {
+      const r = await fetch(getBotDashboardUrl(), {
+        cache: "no-store",
+        headers: {
+          accept: "application/json",
+        },
+      });
       if (!r.ok) throw new Error(`bot proxy failed status=${r.status}`);
-      return r.json();
+      return (await r.json()) as JsonRecord;
     }, 5);
 
-    const d = payload?.data ?? {};
+    const d =
+      typeof payload.data === "object" && payload.data !== null
+        ? (payload.data as JsonRecord)
+        : {};
 
     // ---- SUPABASE INSERT ----
     stage.at = "SUPABASE_INSERT";
@@ -118,9 +138,9 @@ export async function GET(req: Request) {
     }, 5);
 
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { ok: false, error: "cron_failed", stage: stage.at, message: msg(e) },
+      { ok: false, error: "cron_failed", stage: stage.at, message: msg(error) },
       { status: 500 }
     );
   }

@@ -1,26 +1,54 @@
 "use client";
 
 import {
-  LineChart,
+  CartesianGrid,
   Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
 } from "recharts";
 
-export default function DashboardClient({
-  windowKey,
-  botStats,
-  botEquityRows,
-  trades,
-  tvStats,
-}: any) {
-  const fmt = (v: any, d = 2) =>
-    v == null ? "—" : Number(v).toFixed(d);
+type Stats = {
+  trades?: number | null;
+  net_pnl?: number | null;
+  win_rate_pct?: number | null;
+  profit_factor?: number | null;
+  expectancy?: number | null;
+};
 
-  const StatCard = ({ label, value }: any) => (
+type EquityRow = {
+  closed_at?: string | null;
+  equity?: number | null;
+};
+
+type DashboardClientProps = {
+  windowKey: string;
+  botStats?: Stats | null;
+  botEquityRows?: EquityRow[] | null;
+  tvStats?: Stats | null;
+};
+
+type StatCardProps = {
+  label: string;
+  value: string | number;
+};
+
+function fmt(value: number | string | null | undefined, digits = 2) {
+  return value == null ? "-" : Number(value).toFixed(digits);
+}
+
+function formatDateLabel(value: unknown) {
+  if (typeof value !== "string" && typeof value !== "number") {
+    return "-";
+  }
+
+  return new Date(value).toLocaleString();
+}
+
+function StatCard({ label, value }: StatCardProps) {
+  return (
     <div
       style={{
         background: "white",
@@ -36,7 +64,14 @@ export default function DashboardClient({
       </div>
     </div>
   );
+}
 
+export default function DashboardClient({
+  windowKey,
+  botStats,
+  botEquityRows,
+  tvStats,
+}: DashboardClientProps) {
   return (
     <main
       style={{
@@ -50,7 +85,6 @@ export default function DashboardClient({
         Performance Dashboard ({windowKey})
       </h1>
 
-      {/* BOT SECTION */}
       <section>
         <h2 style={{ marginBottom: 15 }}>Bot Performance</h2>
 
@@ -69,25 +103,20 @@ export default function DashboardClient({
         </div>
       </section>
 
-      {/* EQUITY CHART */}
       <section style={{ marginTop: 50 }}>
         <h2>Equity Curve</h2>
 
         <div style={{ width: "100%", height: 320 }}>
           <ResponsiveContainer>
-            <LineChart data={botEquityRows}>
+            <LineChart data={botEquityRows ?? []}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="closed_at"
-                tickFormatter={(v) =>
-                  new Date(v).toLocaleDateString()
-                }
+                tickFormatter={(value: string) => new Date(value).toLocaleDateString()}
               />
               <YAxis />
               <Tooltip
-                labelFormatter={(v) =>
-                  new Date(v).toLocaleString()
-                }
+                labelFormatter={(value) => formatDateLabel(value)}
               />
               <Line
                 type="monotone"
@@ -101,7 +130,6 @@ export default function DashboardClient({
         </div>
       </section>
 
-      {/* TV COMPARISON */}
       <section style={{ marginTop: 50 }}>
         <h2>TradingView Comparison</h2>
 
