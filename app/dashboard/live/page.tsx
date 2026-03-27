@@ -341,6 +341,7 @@ export default function LivePage() {
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let controller: AbortController | null = null;
+    let failureCount = 0;
 
     function publishPollStatus(detail: { ok: boolean; ts: string; error?: string }) {
       window.dispatchEvent(
@@ -376,12 +377,14 @@ export default function LivePage() {
         if (!cancelled) {
           setData(normalizeDashboardPayload(json));
           setError("");
+          failureCount = 0;
           publishPollStatus({ ok: true, ts: new Date().toISOString() });
         }
       } catch (err: unknown) {
         if (!cancelled) {
           const message =
             err instanceof Error ? err.message : "Failed to load live dashboard";
+          failureCount += 1;
           setError(message);
           publishPollStatus({
             ok: false,
@@ -395,9 +398,10 @@ export default function LivePage() {
         }
 
         if (!cancelled) {
+          const nextDelayMs = Math.min(15000, 3000 * Math.max(1, failureCount));
           timeoutId = setTimeout(() => {
             void load();
-          }, 3000);
+          }, nextDelayMs);
         }
       }
     }
@@ -447,6 +451,7 @@ export default function LivePage() {
   );
 
   const isPaperMode = String(data?.mode ?? "").toLowerCase() === "paper";
+  const pollDelayLabel = error ? "Retrying with backoff" : "Polling every 3 seconds";
 
   if (loading && !data) {
     return (
@@ -504,7 +509,7 @@ export default function LivePage() {
 
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-white/45 sm:text-xs">
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
-                      Polling every 3 seconds
+                      {pollDelayLabel}
                     </span>
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
                       Last poll: {formatTimestamp(data?.updated)}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getBotDashboardUrl } from "@/lib/botDashboardUrl";
+import { fetchJsonWithTimeout } from "@/lib/fetchJsonWithTimeout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -124,7 +125,8 @@ export async function GET(req: Request) {
     }
 
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const serviceKey =
+      process.env.SB_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !serviceKey) {
       return NextResponse.json(
@@ -153,15 +155,18 @@ export async function GET(req: Request) {
     // ---- BOT FETCH ----
     stage.at = "BOT_FETCH";
     const payload = await withRetry<JsonRecord>(async () => {
-      const r = await fetch(getBotDashboardUrl(), {
+      return await fetchJsonWithTimeout<JsonRecord>(getBotDashboardUrl(), {
         cache: "no-store",
         headers: {
           accept: "application/json",
         },
+        timeoutMs: 20000,
       });
-      if (!r.ok) throw new Error(`bot proxy failed status=${r.status}`);
-      return (await r.json()) as JsonRecord;
     }, 5);
+
+    if (payload.ok === false) {
+      throw new Error("bot dashboard upstream reported failure");
+    }
 
     const d =
       typeof payload.data === "object" && payload.data !== null

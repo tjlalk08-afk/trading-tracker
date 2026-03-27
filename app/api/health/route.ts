@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getBotDashboardUrl } from "@/lib/botDashboardUrl";
+import { fetchJsonWithTimeout } from "@/lib/fetchJsonWithTimeout";
 import { requireApprovedApiUser } from "@/lib/requireApprovedApiUser";
 
 export const runtime = "nodejs";
@@ -64,7 +65,7 @@ function configCheck(): CheckResult {
   const required = [
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    "SUPABASE_SERVICE_ROLE_KEY",
+    process.env.SB_SERVICE_ROLE_KEY ? "SB_SERVICE_ROLE_KEY" : "SUPABASE_SERVICE_ROLE_KEY",
   ];
 
   const missing = required.filter((key) => !process.env[key]?.trim());
@@ -84,18 +85,11 @@ function configCheck(): CheckResult {
 
 async function botCheck(): Promise<CheckResult> {
   try {
-    const url = getBotDashboardUrl();
-    const res = await fetch(url, {
+    await fetchJsonWithTimeout<Record<string, unknown>>(getBotDashboardUrl(), {
       cache: "no-store",
       headers: { accept: "application/json" },
+      timeoutMs: 15000,
     });
-
-    if (!res.ok) {
-      return {
-        status: "error",
-        message: `Bot upstream returned ${res.status}`,
-      };
-    }
 
     return {
       status: "ok",
@@ -131,8 +125,8 @@ export async function GET(req: NextRequest) {
     },
     cron: {
       status: "ok",
-      message: "Vercel Hobby cron limited to one run per day",
-      detail: "Configured for 06:00 UTC Tuesday-Saturday, which is after market close in Chicago for the previous trading day.",
+      message: "Cron schedules configured for poll and snapshot capture",
+      detail: "Poll runs at 10:45 AM America/Chicago on weekdays via UTC schedules. Daily snapshot runs at 06:00 UTC Tuesday-Saturday.",
     },
   };
 

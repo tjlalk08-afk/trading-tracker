@@ -46,6 +46,13 @@ export async function proxy(req: NextRequest) {
 
   if (!isDashboard) return res;
 
+  function withPendingCookies(response: NextResponse) {
+    res.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie);
+    });
+    return response;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -53,7 +60,7 @@ export async function proxy(req: NextRequest) {
   if (!user) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return withPendingCookies(NextResponse.redirect(url));
   }
 
   const { data: profile, error } = await supabase
@@ -65,7 +72,7 @@ export async function proxy(req: NextRequest) {
   if (error || !profile?.approved) {
     const url = req.nextUrl.clone();
     url.pathname = "/pending";
-    return NextResponse.redirect(url);
+    return withPendingCookies(NextResponse.redirect(url));
   }
 
   return res;

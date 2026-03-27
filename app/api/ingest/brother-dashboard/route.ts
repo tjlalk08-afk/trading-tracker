@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getBotDashboardUrl } from "@/lib/botDashboardUrl";
+import { fetchJsonWithTimeout } from "@/lib/fetchJsonWithTimeout";
 import { requireAdminApiUser } from "@/lib/requireAdminApiUser";
 
 export const runtime = "nodejs";
@@ -153,22 +154,21 @@ function dateOnly(value: string): string {
 async function fetchBrotherDashboardPayload(): Promise<JsonRecord> {
   const url = getBotDashboardUrl();
 
-  const response = await fetch(url, {
+  const json = await fetchJsonWithTimeout<JsonRecord>(url, {
     method: "GET",
     cache: "no-store",
     headers: {
       Accept: "application/json",
     },
+    timeoutMs: 20000,
   });
-
-  if (!response.ok) {
-    throw new Error(`Brother dashboard fetch failed (${response.status})`);
-  }
-
-  const json = await response.json();
 
   if (!isRecord(json)) {
     throw new Error("Brother dashboard payload was not an object");
+  }
+
+  if (json.ok === false) {
+    throw new Error("Brother dashboard reported failure");
   }
 
   return json;

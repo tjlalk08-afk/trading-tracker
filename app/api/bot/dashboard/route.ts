@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBotDashboardUrl } from "@/lib/botDashboardUrl";
+import { fetchJsonWithTimeout } from "@/lib/fetchJsonWithTimeout";
 import { requireApprovedApiUser } from "@/lib/requireApprovedApiUser";
 
 export const runtime = "nodejs";
@@ -11,20 +12,24 @@ export async function GET(req: NextRequest) {
     auth = await requireApprovedApiUser(req);
     if ("error" in auth) return auth.error;
 
-    const res = await fetch(getBotDashboardUrl(), {
+    const upstream = await fetchJsonWithTimeout<Record<string, unknown>>(getBotDashboardUrl(), {
       cache: "no-store",
       headers: {
         accept: "application/json",
       },
+      timeoutMs: 15000,
     });
 
-    if (!res.ok) {
+    const payload =
+      typeof upstream?.data === "object" && upstream?.data !== null ? upstream.data : upstream;
+    const upstreamOk = upstream?.ok;
+
+    if (upstreamOk === false) {
       return auth.applyCookies(
         NextResponse.json(
           {
             ok: false,
-            error: "Upstream bot dashboard failed",
-            status: res.status,
+            error: "Upstream bot dashboard reported failure",
           },
           {
             status: 502,
@@ -34,10 +39,6 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const upstream = await res.json();
-
-    const payload =
-      typeof upstream?.data === "object" && upstream?.data !== null ? upstream.data : upstream;
     const directEquity = Number((payload as Record<string, unknown>)?.equity ?? NaN);
     const directCash = Number((payload as Record<string, unknown>)?.cash ?? NaN);
     const liveEquity = Number((payload as Record<string, unknown>)?.live_equity ?? NaN);
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
     return auth.applyCookies(
       NextResponse.json(
         {
-          ok: upstream?.ok ?? true,
+          ok: upstreamOk ?? true,
           data: {
             ...(payload as Record<string, unknown>),
             mode,
