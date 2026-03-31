@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/live", label: "Live" },
   { href: "/dashboard/paper", label: "Paper" },
   { href: "/dashboard/trades", label: "Trades" },
+  { href: "/dashboard/events", label: "Events" },
   { href: "/dashboard/investors", label: "Investors" },
 ];
 
@@ -17,6 +18,7 @@ const MOBILE_NAV_ITEMS = [
   { href: "/dashboard/live", label: "Live" },
   { href: "/dashboard/paper", label: "Paper" },
   { href: "/dashboard/trades", label: "Trades" },
+  { href: "/dashboard/events", label: "Events" },
   { href: "/dashboard/investors", label: "Investors" },
 ];
 
