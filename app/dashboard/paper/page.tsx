@@ -18,6 +18,28 @@ type Snapshot = {
   total_pl: number;
   realized_pl: number;
   open_pl: number;
+  live_cash?: number | null;
+  live_equity?: number | null;
+  live_realized_pl?: number | null;
+  live_open_pl?: number | null;
+  live_total_pl?: number | null;
+  test_cash?: number | null;
+  test_equity?: number | null;
+  test_realized_pl?: number | null;
+  test_open_pl?: number | null;
+  test_total_pl?: number | null;
+  live_realized_pnl?: number | null;
+  live_open_pnl?: number | null;
+  live_total_pnl?: number | null;
+  test_realized_pnl?: number | null;
+  test_open_pnl?: number | null;
+  test_total_pnl?: number | null;
+};
+
+type BotDashboardPayload = {
+  ok?: boolean;
+  data?: Snapshot | null;
+  error?: string;
 };
 
 type TradeRow = {
@@ -55,7 +77,18 @@ type TradeHistoryPayload = {
 type ChartPoint = {
   label: string;
   snapshotTs: string;
-  equity: number;
+  liveEquity: number;
+  testEquity: number;
+};
+
+type TradeComparisonRow = {
+  key: string;
+  symbol: string;
+  side: string;
+  qty: number;
+  closedAt: string | null;
+  live: TradeRow | null;
+  test: TradeRow | null;
 };
 
 function money(n: number | null | undefined) {
@@ -171,7 +204,28 @@ function StatCard({
   );
 }
 
+function normalizeTradeLane(source: string | null | undefined): "LIVE" | "TEST" | "OTHER" {
+  const normalized = String(source ?? "").trim().toLowerCase();
+  if (normalized.includes("live")) return "LIVE";
+  if (normalized.includes("test") || normalized.includes("paper") || normalized.includes("sim")) return "TEST";
+  return "OTHER";
+}
+
+function normalizeSnapshot(snapshot: Snapshot | null | undefined): Snapshot | null {
+  if (!snapshot) return null;
+  return {
+    ...snapshot,
+    live_realized_pl: snapshot.live_realized_pl ?? snapshot.live_realized_pnl ?? 0,
+    live_open_pl: snapshot.live_open_pl ?? snapshot.live_open_pnl ?? 0,
+    live_total_pl: snapshot.live_total_pl ?? snapshot.live_total_pnl ?? 0,
+    test_realized_pl: snapshot.test_realized_pl ?? snapshot.test_realized_pnl ?? 0,
+    test_open_pl: snapshot.test_open_pl ?? snapshot.test_open_pnl ?? 0,
+    test_total_pl: snapshot.test_total_pl ?? snapshot.test_total_pnl ?? 0,
+  };
+}
+
 export default function PaperPage() {
+  const [currentSession, setCurrentSession] = useState<Snapshot | null>(null);
   const [latest, setLatest] = useState<Snapshot | null>(null);
   const [history, setHistory] = useState<Snapshot[]>([]);
   const [trades, setTrades] = useState<TradeRow[]>([]);
@@ -184,16 +238,21 @@ export default function PaperPage() {
         setLoading(true);
         setError("");
 
-        const [latestRes, historyRes, tradesRes] = await Promise.all([
+        const [currentRes, latestRes, historyRes, tradesRes] = await Promise.all([
+          fetch("/api/bot/dashboard", { cache: "no-store" }),
           fetch("/api/dashboard-latest?mode=paper", { cache: "no-store" }),
           fetch("/api/dashboard-history?mode=paper&days=365&limit=500", { cache: "no-store" }),
           fetch("/api/trade-history?mode=paper&range=30d&limit=100", { cache: "no-store" }),
         ]);
 
+        const currentJson = (await currentRes.json()) as BotDashboardPayload;
         const latestJson = (await latestRes.json()) as LatestPayload;
         const historyJson = (await historyRes.json()) as HistoryPayload;
         const tradesJson = (await tradesRes.json()) as TradeHistoryPayload;
 
+        if (!currentRes.ok || currentJson.ok === false) {
+          throw new Error(currentJson.error || "Failed to load current paper session.");
+        }
         if (!latestRes.ok || !latestJson.ok) {
           throw new Error(latestJson.error || "Failed to load latest paper snapshot.");
         }
@@ -204,8 +263,9 @@ export default function PaperPage() {
           throw new Error(tradesJson.error || "Failed to load paper trades.");
         }
 
-        setLatest(latestJson.data ?? null);
-        setHistory(historyJson.data ?? []);
+        setCurrentSession(normalizeSnapshot(currentJson.data ?? null));
+        setLatest(normalizeSnapshot(latestJson.data ?? null));
+        setHistory((historyJson.data ?? []).map((row) => normalizeSnapshot(row)!).filter(Boolean));
         setTrades(tradesJson.data ?? []);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to load paper dashboard.");
@@ -231,18 +291,33 @@ export default function PaperPage() {
     );
   }, [history]);
 
-  const chartData = useMemo<ChartPoint[]>(
-    () =>
-      dailyRows.map((row) => ({
+  const chartData = useMemo<ChartPoint[]>(() => {
+    const rows = [...dailyRows];
+    if (currentSession?.snapshot_ts) {
+      const currentDay = chicagoDayKey(currentSession.snapshot_ts);
+      const withoutCurrentDay = rows.filter((row) => chicagoDayKey(row.snapshot_ts) !== currentDay);
+      withoutCurrentDay.push(currentSession);
+      withoutCurrentDay.sort((a, b) => new Date(a.snapshot_ts).getTime() - new Date(b.snapshot_ts).getTime());
+      return withoutCurrentDay.map((row) => ({
         label: formatDayLabel(row.snapshot_ts),
         snapshotTs: row.snapshot_ts,
-        equity: Number(row.equity ?? 0),
-      })),
-    [dailyRows],
-  );
+        liveEquity: Number(row.live_equity ?? row.equity ?? 0),
+        testEquity: Number(row.test_equity ?? 0),
+      }));
+    }
+
+    return rows.map((row) => ({
+      label: formatDayLabel(row.snapshot_ts),
+      snapshotTs: row.snapshot_ts,
+      liveEquity: Number(row.live_equity ?? row.equity ?? 0),
+      testEquity: Number(row.test_equity ?? 0),
+    }));
+  }, [currentSession, dailyRows]);
 
   const chartDomain = useMemo(() => {
-    const values = chartData.map((point) => point.equity).filter((value) => Number.isFinite(value));
+    const values = chartData
+      .flatMap((point) => [point.liveEquity, point.testEquity])
+      .filter((value) => Number.isFinite(value));
     if (values.length === 0) return ["auto", "auto"] as const;
     const min = Math.min(...values);
     const max = Math.max(...values);
@@ -251,13 +326,66 @@ export default function PaperPage() {
     return [Math.floor(min - padding), Math.ceil(max + padding)] as const;
   }, [chartData]);
 
-  const tradeSummary = useMemo(() => {
-    const net = trades.reduce((sum, row) => sum + Number(row.realized_pl ?? 0), 0);
+  const laneTradeSummary = useMemo(() => {
+    const liveTrades = trades.filter((trade) => normalizeTradeLane(trade.source) === "LIVE");
+    const testTrades = trades.filter((trade) => normalizeTradeLane(trade.source) === "TEST");
     return {
-      count: trades.length,
-      net,
+      live: {
+        count: liveTrades.length,
+        net: liveTrades.reduce((sum, row) => sum + Number(row.realized_pl ?? 0), 0),
+        rows: liveTrades,
+      },
+      test: {
+        count: testTrades.length,
+        net: testTrades.reduce((sum, row) => sum + Number(row.realized_pl ?? 0), 0),
+        rows: testTrades,
+      },
     };
   }, [trades]);
+
+  const comparisonRows = useMemo<TradeComparisonRow[]>(() => {
+    const grouped = new Map<string, TradeComparisonRow>();
+
+    for (const trade of trades) {
+      const lane = normalizeTradeLane(trade.source);
+      if (lane === "OTHER") continue;
+
+      const closedAt = trade.closed_at ?? null;
+      const minuteBucket = closedAt ? new Date(closedAt).toISOString().slice(0, 16) : trade.trade_day ?? "unknown";
+      const key = [
+        trade.symbol ?? "",
+        trade.side ?? "",
+        Number(trade.qty ?? 0),
+        minuteBucket.slice(0, 10),
+      ].join("|");
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          key,
+          symbol: String(trade.symbol ?? "--"),
+          side: String(trade.side ?? "--"),
+          qty: Number(trade.qty ?? 0),
+          closedAt,
+          live: null,
+          test: null,
+        });
+      }
+
+      const row = grouped.get(key)!;
+      row.closedAt = row.closedAt && closedAt
+        ? (new Date(row.closedAt).getTime() > new Date(closedAt).getTime() ? row.closedAt : closedAt)
+        : (row.closedAt ?? closedAt);
+
+      if (lane === "LIVE") row.live = trade;
+      if (lane === "TEST") row.test = trade;
+    }
+
+    return Array.from(grouped.values()).sort(
+      (a, b) => new Date(b.closedAt ?? 0).getTime() - new Date(a.closedAt ?? 0).getTime(),
+    );
+  }, [trades]);
+
+  const session = currentSession ?? latest;
 
   if (loading) {
     return <Surface className="p-5 text-sm text-white/60">Loading paper mode...</Surface>;
@@ -302,11 +430,59 @@ export default function PaperPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
-        <StatCard title="Paper Equity" value={money(latest.equity)} sub={`Source updated ${formatDate(latest.updated_text)}`} />
-        <StatCard title="Paper Total P/L" value={signedMoney(latest.total_pl)} sub="Latest saved paper result" tone={pnlTextClass(latest.total_pl)} />
-        <StatCard title="Recent Paper Trades" value={String(tradeSummary.count)} sub="Loaded from paper mode only" />
-        <StatCard title="30D Trade P/L" value={signedMoney(tradeSummary.net)} sub="Paper closed trades only" tone={pnlTextClass(tradeSummary.net)} />
+        <StatCard title="Live Lane Equity" value={money(session?.live_equity)} sub={`Current paper live lane · ${formatDate(session?.updated_text)}`} />
+        <StatCard title="Test Lane Equity" value={money(session?.test_equity)} sub={`Current paper test lane · ${formatDate(session?.updated_text)}`} />
+        <StatCard title="Same-Trade Delta" value={signedMoney(Number(session?.live_realized_pl ?? 0) - Number(session?.test_realized_pl ?? 0))} sub="Live lane realized minus test lane realized" tone={pnlTextClass(Number(session?.live_realized_pl ?? 0) - Number(session?.test_realized_pl ?? 0))} />
+        <StatCard title="Compared Trades" value={String(comparisonRows.length)} sub="Merged live-vs-test paper trades" />
       </div>
+
+      <Surface className="p-3.5">
+        <div className="flex flex-col gap-3 border-b border-white/10 pb-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">Paper Lane Comparison</div>
+            <div className="mt-1 text-[1.35rem] font-semibold text-white">Live account vs test account</div>
+            <div className="mt-1 text-sm text-white/55">
+              Same paper session, compared by entry and exit behavior.
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+          <Surface className="p-3.5">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-sm font-medium text-white">Live Account Lane</div>
+              <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-300">
+                {laneTradeSummary.live.count} closed
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+              <StatCard title="Cash" value={money(session?.live_cash)} sub="Paper live lane" />
+              <StatCard title="Equity" value={money(session?.live_equity)} sub="Paper live lane" />
+              <StatCard title="Realized" value={signedMoney(session?.live_realized_pl)} sub="Current session" tone={pnlTextClass(session?.live_realized_pl)} />
+              <StatCard title="Open" value={signedMoney(session?.live_open_pl)} sub="Current session" tone={pnlTextClass(session?.live_open_pl)} />
+              <StatCard title="Total" value={signedMoney(session?.live_total_pl)} sub="Current session" tone={pnlTextClass(session?.live_total_pl)} />
+              <StatCard title="30D Trade P/L" value={signedMoney(laneTradeSummary.live.net)} sub="Closed paper live-lane trades" tone={pnlTextClass(laneTradeSummary.live.net)} />
+            </div>
+          </Surface>
+
+          <Surface className="p-3.5">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-sm font-medium text-white">Test Account Lane</div>
+              <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2.5 py-1 text-[11px] text-cyan-300">
+                {laneTradeSummary.test.count} closed
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+              <StatCard title="Cash" value={money(session?.test_cash)} sub="Paper test lane" />
+              <StatCard title="Equity" value={money(session?.test_equity)} sub="Paper test lane" />
+              <StatCard title="Realized" value={signedMoney(session?.test_realized_pl)} sub="Current session" tone={pnlTextClass(session?.test_realized_pl)} />
+              <StatCard title="Open" value={signedMoney(session?.test_open_pl)} sub="Current session" tone={pnlTextClass(session?.test_open_pl)} />
+              <StatCard title="Total" value={signedMoney(session?.test_total_pl)} sub="Current session" tone={pnlTextClass(session?.test_total_pl)} />
+              <StatCard title="30D Trade P/L" value={signedMoney(laneTradeSummary.test.net)} sub="Closed paper test-lane trades" tone={pnlTextClass(laneTradeSummary.test.net)} />
+            </div>
+          </Surface>
+        </div>
+      </Surface>
 
       <Surface className="p-3.5">
         <div>
@@ -338,13 +514,17 @@ export default function PaperPage() {
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: 16,
                 }}
-                formatter={(value: number | string | undefined) => [money(Number(value ?? 0)), "Paper Equity"]}
+                formatter={(value: number | string | undefined, name: string | number | undefined) => [
+                  money(Number(value ?? 0)),
+                  name === "liveEquity" ? "Paper Live Lane" : "Paper Test Lane",
+                ]}
                 labelFormatter={(_label, payload) => {
                   const point = payload?.[0]?.payload as { snapshotTs?: string } | undefined;
                   return point?.snapshotTs ? formatDate(point.snapshotTs) : String(_label);
                 }}
               />
-              <Line type="monotone" dataKey="equity" stroke="#38bdf8" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="liveEquity" name="liveEquity" stroke="#34d399" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="testEquity" name="testEquity" stroke="#38bdf8" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -352,8 +532,8 @@ export default function PaperPage() {
 
       <Surface className="overflow-hidden">
         <div className="border-b border-white/10 px-4 py-3.5">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">Recent Paper Trades</div>
-          <div className="mt-1 text-[1.35rem] font-semibold text-white">Latest closed paper trades</div>
+          <div className="text-[10px] uppercase tracking-[0.22em] text-white/40">Compared Paper Trades</div>
+          <div className="mt-1 text-[1.35rem] font-semibold text-white">Same trade, live lane vs test lane</div>
         </div>
 
         <div className="overflow-x-auto">
@@ -364,35 +544,49 @@ export default function PaperPage() {
                 <th className="px-4 py-3 font-medium">Symbol</th>
                 <th className="px-4 py-3 font-medium">Side</th>
                 <th className="px-4 py-3 font-medium text-right">Qty</th>
-                <th className="px-4 py-3 font-medium text-right">Entry</th>
-                <th className="px-4 py-3 font-medium text-right">Exit</th>
-                <th className="px-4 py-3 font-medium text-right">Realized</th>
+                <th className="px-4 py-3 font-medium text-right">Live Entry</th>
+                <th className="px-4 py-3 font-medium text-right">Live Exit</th>
+                <th className="px-4 py-3 font-medium text-right">Live P/L</th>
+                <th className="px-4 py-3 font-medium text-right">Test Entry</th>
+                <th className="px-4 py-3 font-medium text-right">Test Exit</th>
+                <th className="px-4 py-3 font-medium text-right">Test P/L</th>
+                <th className="px-4 py-3 font-medium text-right">Delta</th>
               </tr>
             </thead>
             <tbody>
-              {trades.length ? (
-                trades.map((trade, index) => {
-                  const realized = Number(trade.realized_pl ?? 0);
+              {comparisonRows.length ? (
+                comparisonRows.map((trade, index) => {
+                  const liveRealized = Number(trade.live?.realized_pl ?? 0);
+                  const testRealized = Number(trade.test?.realized_pl ?? 0);
+                  const delta = liveRealized - testRealized;
                   return (
                     <tr
-                      key={String(trade.id ?? trade.external_trade_id ?? `${trade.symbol}-${index}`)}
+                      key={trade.key ?? `${trade.symbol}-${index}`}
                       className="border-b border-white/8 text-white/85 last:border-b-0"
                     >
-                      <td className="px-4 py-4">{formatDate(trade.closed_at ?? trade.trade_day)}</td>
+                      <td className="px-4 py-4">{formatDate(trade.closedAt)}</td>
                       <td className="px-4 py-4 font-medium">{trade.symbol ?? "--"}</td>
                       <td className="px-4 py-4">{trade.side ?? "--"}</td>
-                      <td className="px-4 py-4 text-right">{Number(trade.qty ?? 0)}</td>
-                      <td className="px-4 py-4 text-right">{money(Number(trade.entry_price ?? 0))}</td>
-                      <td className="px-4 py-4 text-right">{money(Number(trade.exit_price ?? 0))}</td>
-                      <td className={`px-4 py-4 text-right font-medium ${pnlTextClass(realized)}`}>
-                        {signedMoney(realized)}
+                      <td className="px-4 py-4 text-right">{trade.qty}</td>
+                      <td className="px-4 py-4 text-right">{money(Number(trade.live?.entry_price ?? 0))}</td>
+                      <td className="px-4 py-4 text-right">{money(Number(trade.live?.exit_price ?? 0))}</td>
+                      <td className={`px-4 py-4 text-right font-medium ${pnlTextClass(liveRealized)}`}>
+                        {signedMoney(liveRealized)}
+                      </td>
+                      <td className="px-4 py-4 text-right">{money(Number(trade.test?.entry_price ?? 0))}</td>
+                      <td className="px-4 py-4 text-right">{money(Number(trade.test?.exit_price ?? 0))}</td>
+                      <td className={`px-4 py-4 text-right font-medium ${pnlTextClass(testRealized)}`}>
+                        {signedMoney(testRealized)}
+                      </td>
+                      <td className={`px-4 py-4 text-right font-medium ${pnlTextClass(delta)}`}>
+                        {signedMoney(delta)}
                       </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-white/50">
+                  <td colSpan={10} className="px-4 py-8 text-center text-white/50">
                     No paper trades saved yet.
                   </td>
                 </tr>

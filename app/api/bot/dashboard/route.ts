@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBotDashboardUrl } from "@/lib/botDashboardUrl";
 import { fetchJsonWithTimeout } from "@/lib/fetchJsonWithTimeout";
 import { requireApprovedApiUser } from "@/lib/requireApprovedApiUser";
+import { detectBotMode } from "@/lib/botMode";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,16 +40,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const directEquity = Number((payload as Record<string, unknown>)?.equity ?? NaN);
-    const directCash = Number((payload as Record<string, unknown>)?.cash ?? NaN);
-    const liveEquity = Number((payload as Record<string, unknown>)?.live_equity ?? NaN);
-    const testEquity = Number((payload as Record<string, unknown>)?.test_equity ?? NaN);
-    const mode =
-      directEquity === 10000 ||
-      directCash === 10000 ||
-      (liveEquity === 0 && testEquity === 10000)
-        ? "paper"
-        : "live";
+    const mode = detectBotMode(upstream);
 
     return auth.applyCookies(
       NextResponse.json(

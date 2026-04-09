@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getBotDashboardUrl } from "@/lib/botDashboardUrl";
 import { fetchJsonWithTimeout } from "@/lib/fetchJsonWithTimeout";
 import { requireAdminApiUser } from "@/lib/requireAdminApiUser";
+import { detectBotMode } from "@/lib/botMode";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -212,14 +213,7 @@ function buildSnapshotRow(upstream: JsonRecord) {
   const equity =
     toNumberValue(payload.equity) ??
     liveEquity + testEquity;
-  const directEquity = toNumberValue(payload.equity);
-  const directCash = toNumberValue(payload.cash);
-  const detectedMode: "live" | "paper" =
-    directEquity === 10000 ||
-    directCash === 10000 ||
-    (liveEquity === 0 && testEquity === 10000)
-      ? "paper"
-      : "live";
+  const detectedMode = detectBotMode(upstream);
 
   return {
     mode: detectedMode,

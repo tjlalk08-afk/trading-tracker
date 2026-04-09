@@ -1,0 +1,415 @@
+1) Every row should have these base fields 
+These go on every event, no matter what type: 
+? event_time_utc 
+? event_type 
+? event_id 
+? symbol 
+? underlying_symbol 
+? signal_id 
+? trade_id ? parent_event_id 
+? mode (paper, live, test) 
+? is_test 
+? strategy 
+? engine 
+? side (LONG/SHORT for signal, CALL/PUT for option position) 
+? source (tradingview, webhook_server, auto_spy_bot, paper_spy_bot, broker, optimizer) 
+? notes 
+Why: this gives you a way to trace one signal all the way from TradingView to final exit. 
+2) Log this event when TradingView sends a signal 
+Event type: signal_received 
+Fields: 
+? all base fields 
+? action ? reason 
+? bar_time 
+? received_time 
+? webhook_secret_ok 
+? raw_payload 
+? ctx 
+? ctx_ema20 
+? ctx_vwap 
+ctx_pmHigh ctx_pmLow ctx_contRefHigh ctx_contRefLow 
+Reason: your webhook already receives and stores most of this today, so this is the easiest first win. 
+3) Log this when the auto bot sees a new signal and forwards it 
+Event type: signal_dispatched 
+Fields: 
+? all base fields 
+? webhook_ts 
+? dispatcher_seen_time 
+? cmd_built 
+? ctx_present 
+? paper_bot_alive 
+? dispatch_success 
+? dispatch_error 
+Reason: auto_spy_bot.py polls, filters to new ts, builds the command string, and sends it into paper_spy_bot.py. That handoff should be logged, because this is where missed or duplicated signals can happen. 
+4) Log one decision row for every entry signal, even if no trade happens 
+Event type: entry_decision 
+Fields: 
+? all base fields 
+? decision (accepted, skipped, deferred) 
+? skip_reason_code 
+? skip_reason_text 
+? trading_halted 
+in_cooldown cooldown_seconds_left entries_today_for_symbol max_entries_per_symbol 
+? open_positions_count 
+? max_open_positions 
+? earnings_blocked 
+? earnings_date 
+? option_symbol_candidate 
+? option_dte 
+? iv_front 
+? iv_ref 
+? iv_ratio 
+? mark_at_decision 
+? bid_at_decision ? ask_at_decision 
+? spread_pct_at_decision 
+? underlying_last_at_decision 
+? dynamic_min_mark 
+? qty_candidate 
+? new_trade_cost 
+? current_exposure_dollars 
+? current_exposure_pct 
+? would_exceed_exposure 
+? exposure_reason 
+This is the most important log in the whole system, because your bot skips trades for many reasons, and you need to know which filters help and which choke good trades. 
+Use consistent skip codes like: 
+? KILL_SWITCH 
+? COOLDOWN 
+? MAX_ENTRIES_PER_SYMBOL 
+? EARNINGS 
+? ALREADY_OPEN 
+? MAX_OPEN_POSITIONS 
+? IV_ABS_FAIL 
+? IV_RATIO_FAIL 
+? NO_QUOTE 
+SPREAD_FAIL 
+PREMIUM_TOO_CHEAP 
+SIZE_ZERO 
+EXPOSURE_FAIL 
+5) Log this when a TEST pending entry is created 
+Event type: test_pending_created 
+Fields: 
+? all base fields 
+? shadow_symbol 
+? option_symbol 
+? qty 
+? signal_mark 
+? signal_under 
+? created_epoch 
+? expires_epoch 
+? ref_name 
+? ref_level 
+? test_entry_window_sec 
+? test_pullback_pct 
+? test_chase_pct 
+? test_breakout_bps 
+? test_touch_tol_bps 
+? test_reclaim_bps 
+Your TEST lane has real logic here, so if you don't log it, you won't know whether TEST outperformance came from the signal or the delayed-entry logic. 
+6) Log this every time a pending TEST entry is evaluated 
+Event type: test_pending_update 
+Fields: 
+? all base fields 
+? shadow_symbol 
+? current_mark 
+   best_mark current_under prev_under pullback_hit ? chase_hit 
+? breakout_hit 
+? touched_ref 
+? pullback_reclaim_hit 
+? expired ? fill_decision 
+? fill_reason (reclaim, breakout, opt_pullback, chase, expiry_best) 
+That gives you a clean answer to: "why did TEST get in better than LIVE?" 
+7) Log this when an order is actually submitted 
+Event type: order_submitted 
+Fields: 
+? all base fields 
+? order_side (BUY_TO_OPEN, SELL_TO_CLOSE) 
+? option_symbol 
+? qty_requested 
+? start_price 
+? limit_price 
+? bid ? ask ? mid 
+? spread_pct 
+? timeout_seconds 
+? max_retries 
+? retry_step 
+? broker_order_id 
+? submission_success 
+? submission_error 
+This matters because your live account uses limit-with-rules entry/exit behavior, and non-fills are part of performance. 
+
+8) Log this when you get a fill or no fill 
+Event type: order_result 
+Fields: 
+? all base fields 
+? option_symbol 
+? qty_requested 
+? qty_filled 
+? avg_fill_price 
+? fill_complete 
+? fill_time_seconds 
+? retries_used 
+? entry_not_filled 
+? exit_not_filled 
+? broker_status 
+? slippage_vs_start_price 
+? slippage_vs_mid 
+? fill_error 
+You specifically want to separate: 
+? signal quality from 
+? fill quality 
+9) Log this when a position is opened 
+Event type: position_opened 
+Fields: 
+? all base fields 
+? trade_id 
+? option_symbol 
+? qty 
+? orig_qty 
+? entry_price 
+? entry_time 
+? entry_epoch 
+cash_after 
+? equity_after 
+? entry_engine 
+? tv_ctx 
+? under_symbol 
+? day_high_init 
+? day_low_init 
+Your PaperPosition already carries most of this state. 
+10) Log lightweight position snapshots while trade is open 
+Event type: position_snapshot 
+Do this every 15-60 seconds, not every tick. 
+Fields: 
+? all base fields 
+? trade_id 
+? option_symbol 
+? qty_open 
+? entry_price 
+? mark 
+? bid ? ask 
+? spread_pct 
+? open_pnl_dollars 
+? open_pnl_pct 
+? realized_trade_pnl_so_far 
+? underlying_last 
+? day_high 
+? day_low ? ema9_5m 
+? ema21_5m 
+? last_closed_5m_close 
+? trim1_done ? trim2_done  trim1_closed_qty ? trim2_closed_qty 
+? runner_mode_active 
+? runner_mode_peak_gain 
+? runner_locked_profit_stop 
+? max_gain_seen 
+? stop_hit_polls 
+? tv_close_hint 
+This is what lets you later study "what winners looked like before trim" and "what losers looked like before stop." 
+11) Log every management action 
+Event type: position_action 
+Fields: 
+? all base fields 
+? trade_id 
+? action_taken 
+? action_reason 
+? qty_affected 
+? mark_at_action 
+? open_pnl_at_action 
+? open_pnl_pct_at_action 
+? underlying_last_at_action 
+? new_stop_pct 
+? new_runner_lock_pct 
+? new_state_flags 
+Use action_taken values like: 
+? TRIM1 ? TRIM2 
+? RUNNER_STOP_ARMED 
+? RUNNER_LOCK_UPDATED 
+? TV_CLOSE_HINT_SET 
+? KILL_SWITCH_RISK_OFF KILL_LOSER 
+KILL_FLAT 
+Your current close helper already centralizes some of this for close/trim events. 
+12) Log every exit trigger before the close is attempted 
+Event type: exit_decision 
+Fields: 
+? all base fields 
+? trade_id 
+? exit_reason_code 
+? exit_reason_text 
+? qty_to_close 
+? mark_at_exit_decision 
+? underlying_last 
+? last_closed_5m_close 
+? ema9_5m 
+? ema21_5m 
+? invalidation_reason 
+? stop_pct_triggered 
+? runner_retrace_triggered 
+? kill_switch_active 
+For your system, exit codes should include: 
+? STOP_LOSS_20 
+? POST_TRIM1_STOP 
+? RUNNER_RETRACE_STOP 
+? EMA9_RUNNER_EXIT 
+? STRUCTURE_INVALIDATION 
+? TV_CLOSE_HINT 
+? MANUAL_CLOSE 
+? FLATTEN 
+? KILL_LOSER 
+? KILL_FLAT 
+Your bot already has structure invalidation logic by engine and side, so log that exact returned reason. 
+
+13) Log the final close 
+Event type: trade_closed 
+Fields: 
+? all base fields 
+? trade_id 
+? option_symbol 
+? closed_qty_total 
+? entry_price_avg 
+? exit_price_avg 
+? opened_at ? closed_at 
+? hold_seconds 
+? realized_pnl_dollars 
+? realized_pnl_pct 
+? max_open_pnl_dollars 
+? max_open_pnl_pct 
+? max_adverse_pnl_dollars 
+? max_adverse_pnl_pct 
+? final_exit_reason_code 
+? final_exit_reason_text 
+? trim1_done 
+? trim2_done 
+? engine 
+? weekday 
+? hour_bucket 
+This is the row your optimizer-style analytics can read later. Your optimizer already thinks in terms of signal, side, hour, weekday, MFE, MAE, and net P/L, so your live ledger should preserve those same fields. 
+14) Log broker/account reconciliation 
+Event type: reconciliation_check 
+Fields: 
+event_time_utc 
+event_type 
+? symbol 
+? trade_id 
+? internal_has_position 
+? broker_has_position 
+? internal_qty 
+? broker_qty 
+? internal_option_symbol 
+? broker_option_symbol 
+? internal_avg_price 
+? broker_avg_price 
+? match_ok 
+? discrepancy_reason 
+This is what will catch phantom positions, missed fills, and drift. 
+15) Log daily system/risk state 
+Event type: risk_state 
+Fields: 
+? event_time_utc 
+? day_start_equity 
+? current_equity 
+? daily_drawdown_pct 
+? trading_halted 
+? kill_switch_mode 
+? open_positions_count 
+? entries_today_total 
+? exposure_dollars 
+? exposure_pct ? cash 
+? realized_pnl 
+? open_pnl 
+? total_pnl 
+Your bot already tracks most of this internally and on the dashboard side. 
+16) Also log optimizer runs, but separately 
+Not in the live trade file - in an optimizer ledger. 
+Event type: optimizer_run 
+Fields: 
+? run_id 
+? candidate_sha256 
+? ticker 
+? total_trades 
+? closed_trades 
+? net_pl_usd ? expectancy 
+? recovery_factor 
+? win_rate_pct 
+? profit_factor 
+? max_drawdown_usd 
+? max_drawdown_pct 
+? avg_trade_usd 
+? score 
+? current_rank 
+? is_new_best 
+? optimizer_error 
+? rollback_applied 
+You already persist a lot of this in the optimizer/controller flow, so keep it, just make it easier to join mentally with live data later. 
+Minimum version to build first 
+If you want the leanest useful version, start with just these 6 event types: 
+? signal_received 
+? entry_decision 
+? order_result 
+? position_opened 
+? position_action trade_closed 
+
+That alone would give you about 80% of the value. 
+One rule to follow 
+For every signal, you should be able to answer: 
+1. what came in 
+2. what the bot decided 
+3. why it decided that 
+4. what price it actually got 
+5. how the trade was managed 
+6. how it ended 
+If you can answer those six from your logs, your system becomes much easier to improve. 
+I can turn this into a literal JSONL schema and file structure next so you know exactly what files/tables to create. 
+ 
+? 
+? 
+? 
+? 
+
+? 
+? 
+? 
+? 
+
+
+
+
+
+
+
+
+
+?
+
+? 
+
+? 
+
+
+
+
+
+
+
+
+
+? 
+
+? 
+
+
+
+
+
+? 
+
+
+
+
+
+
+
+
+
+
+
+
+

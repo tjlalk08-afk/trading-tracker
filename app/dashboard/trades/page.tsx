@@ -1,9 +1,11 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import TradeChartModal from "@/components/TradeChartModal";
 
 type Range = "7D" | "30D" | "1Y" | "ALL";
 type SourceFilter = "ALL" | "LIVE" | "TEST";
+type ModeFilter = "LIVE" | "PAPER" | "ALL";
 
 type TradeRow = {
   id?: string | number | null;
@@ -18,6 +20,7 @@ type TradeRow = {
   opened_at?: string | null;
   closed_at?: string | null;
   source?: string | null;
+  mode?: string | null;
   external_trade_id?: string | null;
 };
 
@@ -76,6 +79,13 @@ function normalizeTradeSource(source: string | null | undefined): "LIVE" | "TEST
   if (s.includes("test") || s.includes("paper") || s.includes("shadow") || s.includes("sim")) {
     return "TEST";
   }
+  return "OTHER";
+}
+
+function modeLabel(mode: string | null | undefined): "LIVE" | "PAPER" | "OTHER" {
+  const normalized = String(mode ?? "").trim().toLowerCase();
+  if (normalized === "live") return "LIVE";
+  if (normalized === "paper") return "PAPER";
   return "OTHER";
 }
 
@@ -142,6 +152,7 @@ function FilterButton({
 
 export default function TradesPage() {
   const [range, setRange] = useState<Range>("30D");
+  const [modeFilter, setModeFilter] = useState<ModeFilter>("LIVE");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("ALL");
   const [rows, setRows] = useState<TradeRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,6 +162,7 @@ export default function TradesPage() {
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [selectedTrade, setSelectedTrade] = useState<TradeRow | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,7 +173,7 @@ export default function TradesPage() {
 
       try {
         const res = await fetch(
-          `/api/trade-history?range=${getRangeParam(range)}&limit=${getRangeLimit(range)}`,
+          `/api/trade-history?range=${getRangeParam(range)}&limit=${getRangeLimit(range)}&mode=all`,
           { cache: "no-store" },
         );
         const json = (await res.json()) as TradeHistoryPayload;
@@ -205,7 +217,7 @@ export default function TradesPage() {
 
     try {
       const res = await fetch(
-        `/api/trade-history?range=${getRangeParam(range)}&limit=${getRangeLimit(range)}&before=${encodeURIComponent(nextCursor)}`,
+        `/api/trade-history?range=${getRangeParam(range)}&limit=${getRangeLimit(range)}&mode=all&before=${encodeURIComponent(nextCursor)}`,
         { cache: "no-store" },
       );
       const json = (await res.json()) as TradeHistoryPayload;
@@ -226,10 +238,12 @@ export default function TradesPage() {
 
   const filteredTrades = useMemo(() => {
     return rows.filter((row) => {
+      const normalizedMode = modeLabel(row.mode);
+      if (modeFilter !== "ALL" && normalizedMode !== modeFilter) return false;
       if (sourceFilter === "ALL") return true;
       return normalizeTradeSource(row.source) === sourceFilter;
     });
-  }, [rows, sourceFilter]);
+  }, [rows, modeFilter, sourceFilter]);
 
   const tradeSummary = useMemo(() => {
     const realized = filteredTrades.map((row) => Number(row.realized_pl ?? 0));
@@ -322,12 +336,22 @@ export default function TradesPage() {
               {tradeSummary.count} loaded
             </span>
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
-              {sourceFilter.toLowerCase()} source
+              {modeFilter.toLowerCase()} mode
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
+              {sourceFilter.toLowerCase()} lane
             </span>
           </div>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-wrap gap-2">
+            {(["LIVE", "PAPER", "ALL"] as ModeFilter[]).map((value) => (
+              <FilterButton key={value} active={modeFilter === value} onClick={() => setModeFilter(value)}>
+                {value}
+              </FilterButton>
+            ))}
+          </div>
           <div className="flex flex-wrap gap-2">
             {(["30D", "1Y", "ALL"] as Range[]).map((value) => (
               <FilterButton key={value} active={range === value} onClick={() => setRange(value)}>
@@ -336,7 +360,7 @@ export default function TradesPage() {
             ))}
           </div>
           <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-white/65">
-            <span>Source</span>
+            <span>Lane</span>
             <select
               value={sourceFilter}
               onChange={(event) => setSourceFilter(event.target.value as SourceFilter)}
@@ -373,7 +397,7 @@ export default function TradesPage() {
         <Surface className="p-3.5">
           <SectionLabel>Closed Trades</SectionLabel>
           <div className="mt-2 text-[1.6rem] font-semibold text-white">{tradeSummary.count}</div>
-          <div className="mt-1.5 text-sm text-white/55">{sourceFilter} source filter</div>
+          <div className="mt-1.5 text-sm text-white/55">{modeFilter} mode · {sourceFilter} lane</div>
         </Surface>
         <Surface className="p-3.5">
           <SectionLabel>Win Rate</SectionLabel>
@@ -460,7 +484,9 @@ export default function TradesPage() {
                                   <th className="px-3 py-2.5 font-medium text-right">Entry</th>
                                   <th className="px-3 py-2.5 font-medium text-right">Exit</th>
                                   <th className="px-3 py-2.5 font-medium text-right">P/L</th>
-                                  <th className="px-3 py-2.5 font-medium">Source</th>
+                                  <th className="px-3 py-2.5 font-medium">Lane</th>
+                                  <th className="px-3 py-2.5 font-medium">Mode</th>
+                                  <th className="px-3 py-2.5 font-medium text-right">Chart</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -482,6 +508,16 @@ export default function TradesPage() {
                                         {signedMoney(realized)}
                                       </td>
                                       <td className="px-3 py-2.5">{source}</td>
+                                      <td className="px-3 py-2.5">{modeLabel(trade.mode)}</td>
+                                      <td className="px-3 py-2.5 text-right">
+                                        <button
+                                          type="button"
+                                          onClick={() => setSelectedTrade(trade)}
+                                          className="rounded-lg border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs font-medium text-white/80 transition hover:bg-white/[0.08] hover:text-white"
+                                        >
+                                          View Chart
+                                        </button>
+                                      </td>
                                     </tr>
                                   );
                                 })}
@@ -532,7 +568,9 @@ export default function TradesPage() {
                     <th className="px-4 py-3 font-medium text-right">Entry</th>
                     <th className="px-4 py-3 font-medium text-right">Exit</th>
                     <th className="px-4 py-3 font-medium text-right">Realized</th>
-                    <th className="px-4 py-3 font-medium">Source</th>
+                    <th className="px-4 py-3 font-medium">Lane</th>
+                    <th className="px-4 py-3 font-medium">Mode</th>
+                    <th className="px-4 py-3 font-medium text-right">Chart</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -555,12 +593,22 @@ export default function TradesPage() {
                             {signedMoney(realized)}
                           </td>
                           <td className="px-4 py-4">{source}</td>
+                          <td className="px-4 py-4">{modeLabel(trade.mode)}</td>
+                          <td className="px-4 py-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTrade(trade)}
+                              className="rounded-lg border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs font-medium text-white/80 transition hover:bg-white/[0.08] hover:text-white"
+                            >
+                              View Chart
+                            </button>
+                          </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={8} className="px-4 py-8 text-center text-white/50">
+                      <td colSpan={10} className="px-4 py-8 text-center text-white/50">
                         No closed trades found for the selected filters.
                       </td>
                     </tr>
@@ -584,6 +632,8 @@ export default function TradesPage() {
           </>
         )}
       </Surface>
+
+      <TradeChartModal trade={selectedTrade} onClose={() => setSelectedTrade(null)} />
     </div>
   );
 }

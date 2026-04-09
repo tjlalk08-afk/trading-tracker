@@ -451,6 +451,7 @@ export default function LivePage() {
   );
 
   const isPaperMode = String(data?.mode ?? "").toLowerCase() === "paper";
+  const detectedModeLabel = isPaperMode ? "Paper Session Detected" : "Live Session Detected";
   const pollDelayLabel = error ? "Retrying with backoff" : "Polling every 3 seconds";
 
   if (loading && !data) {
@@ -535,16 +536,30 @@ export default function LivePage() {
                 </div>
               ) : null}
 
-              {isPaperMode ? (
-                <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/8 p-4 text-center">
-                  <div className="text-sm font-medium uppercase tracking-[0.2em] text-amber-300">
-                    Paper Session Detected
-                  </div>
-                  <div className="mt-2 text-sm text-amber-100">
-                    The current upstream feed looks like paper trading. Use the Paper page for the separated view.
-                  </div>
+              <div
+                className={`mb-4 rounded-2xl p-4 text-center ${
+                  isPaperMode
+                    ? "border border-amber-500/20 bg-amber-500/8"
+                    : "border border-emerald-500/20 bg-emerald-500/8"
+                }`}
+              >
+                <div
+                  className={`text-sm font-medium uppercase tracking-[0.2em] ${
+                    isPaperMode ? "text-amber-300" : "text-emerald-300"
+                  }`}
+                >
+                  {detectedModeLabel}
                 </div>
-              ) : null}
+                <div
+                  className={`mt-2 text-sm ${
+                    isPaperMode ? "text-amber-100" : "text-emerald-100"
+                  }`}
+                >
+                  {isPaperMode
+                    ? "The current upstream feed looks like paper trading. Use the Paper page for the separated view."
+                    : "The current upstream feed is classified as live trading and the live dashboard is showing the active session."}
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-5">
                 <StatCard title="Cash" value={money(data?.cash)} />
