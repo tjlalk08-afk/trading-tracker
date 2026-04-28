@@ -24,7 +24,9 @@ import {
 } from "./data";
 
 type ChartPoint = {
+  date: string;
   month: string;
+  monthTick: string;
   equity: number;
 };
 
@@ -122,10 +124,21 @@ export default function Overview() {
   const dailyRows = useMemo(() => dailyHistory(history), [history]);
   const summary = useMemo(() => summarizeTrades(trades), [trades]);
   const chartData = useMemo<ChartPoint[]>(() => {
-    return dailyRows.map((row) => ({
-      month: formatMonth(row.snapshot_ts),
-      equity: numberValue(row.equity),
-    }));
+    const seenMonths = new Set<string>();
+
+    return dailyRows.map((row) => {
+      const date = row.snapshot_ts?.slice(0, 10) ?? "";
+      const month = formatMonth(row.snapshot_ts);
+      const monthTick = seenMonths.has(month) ? "" : month;
+      seenMonths.add(month);
+
+      return {
+        date,
+        month,
+        monthTick,
+        equity: numberValue(row.equity),
+      };
+    });
   }, [dailyRows]);
   const chartDomain = useMemo<[number, number] | ["auto", "auto"]>(() => {
     const values = chartData
@@ -199,7 +212,14 @@ export default function Overview() {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-            <XAxis dataKey="month" stroke="#9ca3af" />
+            <XAxis
+              dataKey="date"
+              stroke="#9ca3af"
+              tickFormatter={(value) => {
+                const point = chartData.find((row) => row.date === value);
+                return point?.monthTick ?? "";
+              }}
+            />
             <YAxis
               stroke="#9ca3af"
               domain={chartDomain}
@@ -208,6 +228,10 @@ export default function Overview() {
             <Tooltip
               contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151", borderRadius: "12px" }}
               labelStyle={{ color: "#fff" }}
+              labelFormatter={(value) => {
+                const point = chartData.find((row) => row.date === value);
+                return point ? `${point.month} ${String(value).slice(8, 10)}` : value;
+              }}
               formatter={(value: number | string | undefined) => [money(value), "Account Balance"]}
             />
             <Area type="monotone" dataKey="equity" stroke="#10b981" strokeWidth={3} fill="url(#growthGradient)" />
