@@ -5,6 +5,15 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 type Mode = "login" | "signup" | "forgot";
 
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string) {
+  return Promise.race<T>([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]);
+}
+
 export default function HomePage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [mode, setMode] = useState<Mode>("login");
@@ -30,33 +39,45 @@ export default function HomePage() {
 
     try {
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const res = await withTimeout(
+          fetch("/api/auth/login", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({ email, password }),
+          }),
+          12000,
+          "Login timed out. Check the local dev server and try again.",
+        );
+        const json = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+        } | null;
 
-        if (error) throw error;
-
-        const { data: sessionData, error: sessionError } =
-          await supabase.auth.getSession();
-
-        if (sessionError) throw sessionError;
-        if (!sessionData.session) {
-          throw new Error("Login succeeded, but no session was found.");
+        if (!res.ok || !json?.ok) {
+          throw new Error(json?.error || "Login failed.");
         }
 
-        window.location.assign("/dashboard");
+        window.setTimeout(() => {
+          window.location.assign("/dashboard");
+        }, 150);
         return;
       }
 
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
+        const { error } = await withTimeout(
+          supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: `${window.location.origin}/auth/callback`,
+            },
+          }),
+          12000,
+          "Signup timed out. Check the Supabase URL/key in .env.local and try again.",
+        );
 
         if (error) throw error;
 
@@ -65,9 +86,13 @@ export default function HomePage() {
       }
 
       if (mode === "forgot") {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/confirm?next=/reset&type=recovery`,
-        });
+        const { error } = await withTimeout(
+          supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/auth/confirm?next=/reset&type=recovery`,
+          }),
+          12000,
+          "Password reset timed out. Check the Supabase URL/key in .env.local and try again.",
+        );
 
         if (error) throw error;
 

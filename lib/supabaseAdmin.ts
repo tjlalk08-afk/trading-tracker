@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { cleanEnvValue } from "@/lib/env";
 
 type SupabaseAdminClient = ReturnType<typeof createClient>;
 
@@ -9,9 +10,12 @@ export function getSupabaseAdmin() {
     return adminClient;
   }
 
-  const url = process.env.SB_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url =
+    cleanEnvValue(process.env.SB_URL) ||
+    cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const serviceRoleKey =
-    process.env.SB_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    cleanEnvValue(process.env.SB_SERVICE_ROLE_KEY) ||
+    cleanEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   if (!url) {
     throw new Error("Missing Supabase URL: set SB_URL or NEXT_PUBLIC_SUPABASE_URL");

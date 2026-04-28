@@ -1,8 +1,9 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { cleanEnvValue } from "@/lib/env";
 
 export function supabaseBrowser() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const anonKey = cleanEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
   if (!url) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");

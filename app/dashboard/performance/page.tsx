@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import Performance from "@/components/zip-dashboard/Performance";
 
 export default function PerformancePage() {
-  redirect("/dashboard");
+  return <Performance />;
 }

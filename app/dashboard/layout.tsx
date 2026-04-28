@@ -2,24 +2,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import {
+  Activity,
+  BarChart3,
+  Briefcase,
+  LayoutDashboard,
+  Menu,
+  TrendingUp,
+  Users,
+  X,
+} from "lucide-react";
 import GlobalRefreshSnapshotButton from "@/components/GlobalRefreshSnapshotButton";
+import { loadLatest, money, signedMoney, type Snapshot } from "@/components/zip-dashboard/data";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Overview" },
-  { href: "/dashboard/live", label: "Live" },
-  { href: "/dashboard/paper", label: "Paper" },
-  { href: "/dashboard/trades", label: "Trades" },
-  { href: "/dashboard/events", label: "Events" },
-  { href: "/dashboard/investors", label: "Investors" },
-];
-
-const MOBILE_NAV_ITEMS = [
-  { href: "/dashboard", label: "Overview" },
-  { href: "/dashboard/live", label: "Live" },
-  { href: "/dashboard/paper", label: "Paper" },
-  { href: "/dashboard/trades", label: "Trades" },
-  { href: "/dashboard/events", label: "Events" },
-  { href: "/dashboard/investors", label: "Investors" },
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/dashboard/positions", label: "Positions", icon: Briefcase },
+  { href: "/dashboard/trades", label: "Trades", icon: Activity },
+  { href: "/dashboard/investors", label: "Investors", icon: Users },
+  { href: "/dashboard/performance", label: "Performance", icon: TrendingUp },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -33,111 +36,116 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [latest, setLatest] = useState<Snapshot | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadLatest(controller.signal)
+      .then(setLatest)
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+
+  const nav = (
+    <nav className="flex-1 space-y-2 px-4">
+      {NAV_ITEMS.map((item) => {
+        const active = isActive(pathname, item.href);
+        const Icon = item.icon;
+
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={() => setMobileMenuOpen(false)}
+            className={[
+              "group flex min-h-12 items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-all duration-300",
+              active
+                ? "border-emerald-500/30 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 text-emerald-300 shadow-[0_12px_30px_rgba(16,185,129,0.08),inset_0_1px_0_rgba(255,255,255,0.05)]"
+                : "border-transparent text-zinc-400 hover:border-zinc-800 hover:bg-zinc-800/50 hover:text-white",
+            ].join(" ")}
+          >
+            <Icon className={["h-5 w-5 shrink-0", active ? "text-emerald-300" : "text-zinc-500 group-hover:text-white"].join(" ")} />
+            <span>{item.label}</span>
+            {active ? <span className="ml-auto h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,0.7)]" /> : null}
+          </Link>
+        );
+      })}
+    </nav>
+  );
 
   return (
-    <div className="min-h-screen bg-[#0b1016] text-slate-100">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(60,163,123,0.08),transparent_20%),radial-gradient(circle_at_left,rgba(59,130,246,0.05),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_22%,transparent_76%,rgba(255,255,255,0.012))]" />
-        <div
-          className="absolute inset-0 opacity-[0.08]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(148,163,184,0.16) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.16) 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-            maskImage:
-              "linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.15) 45%, rgba(0,0,0,0))",
-          }}
-        />
-      </div>
-
-      <div className="relative z-10">
-        <header className="sticky top-0 z-40 border-b border-slate-700/40 bg-[#0b1016]/86 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-[1880px] flex-col gap-2.5 px-3 py-2.5 sm:px-4 sm:py-3 xl:flex-row xl:items-center xl:justify-between xl:px-5">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(60,163,123,0.28)] bg-[rgba(60,163,123,0.12)] text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--accent-strong)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  TD
-                </div>
-
-                <div className="min-w-0">
-                  <div className="text-[10px] uppercase tracking-[0.28em] text-slate-400">
-                    Automated Fund Monitor
-                  </div>
-                  <div className="mt-0.5 text-lg font-semibold tracking-[0.05em] text-slate-100 sm:text-[1.45rem]">
-                    Trading Desk
-                  </div>
-                </div>
+    <div className="min-h-screen bg-black text-white">
+      <div className="flex min-h-screen">
+        <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r border-zinc-800 bg-gradient-to-b from-zinc-900 to-black lg:flex">
+          <div className="p-8">
+            <Link href="/dashboard" className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 shadow-[0_0_30px_rgba(16,185,129,0.18)]">
+                <TrendingUp className="h-6 w-6 text-black" />
               </div>
-
-              <div className="hidden h-12 w-px bg-slate-700/40 xl:block" />
-
-              <div className="hidden rounded-full border border-[rgba(60,163,123,0.22)] bg-[rgba(60,163,123,0.08)] px-2.5 py-1 text-[9px] uppercase tracking-[0.2em] text-[var(--accent-strong)] xl:block">
-                Operator + Investor View
+              <div>
+                <div className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-xl font-bold text-transparent">
+                  TradeDash
+                </div>
+                <div className="text-xs text-zinc-500">Professional Trading</div>
               </div>
+            </Link>
+          </div>
+
+          {nav}
+
+          <div className="border-t border-zinc-800 p-6">
+            <div className="rounded-xl border border-zinc-700 bg-gradient-to-br from-zinc-800 to-zinc-900 p-4">
+              <div className="text-sm text-zinc-400 mb-1">Account Balance</div>
+              <div className="text-2xl font-bold text-white">{money(latest?.equity)}</div>
+              <div className="text-xs text-emerald-400 mt-1">{signedMoney(latest?.total_pl)} today</div>
             </div>
+          </div>
+        </aside>
 
-            <div className="hidden xl:flex xl:min-w-[260px] xl:justify-end">
-              <div className="rounded-xl border border-slate-700/40 bg-slate-900/50 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
-                  Operating Mode
-                </div>
-                <div className="mt-1 text-[13px] font-medium text-slate-200">
-                  Performance oversight, symbol governance, investor reporting
-                </div>
+        <header className="fixed inset-x-0 top-0 z-50 border-b border-zinc-800 bg-black/95 backdrop-blur-lg lg:hidden">
+          <div className="flex items-center justify-between p-4">
+            <Link href="/dashboard" className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-500">
+                <TrendingUp className="h-5 w-5 text-black" />
               </div>
-            </div>
-
-            <nav className="hidden xl:flex xl:items-center xl:gap-2">
-              {NAV_ITEMS.map((item) => {
-                const active = isActive(pathname, item.href);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={[
-                      "shrink-0 rounded-xl px-3.5 py-2 text-[13px] font-medium transition",
-                      active
-                        ? "border border-[rgba(60,163,123,0.24)] bg-[rgba(60,163,123,0.1)] text-[var(--accent-strong)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-                        : "border border-slate-700/40 bg-slate-900/45 text-slate-300 hover:border-slate-600/50 hover:bg-slate-800/65 hover:text-slate-100",
-                    ].join(" ")}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
+              <div className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-lg font-bold text-transparent">
+                TradeDash
+              </div>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-900 hover:text-white"
+              aria-label={mobileMenuOpen ? "Close dashboard menu" : "Open dashboard menu"}
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
           </div>
         </header>
 
-        <main className="mx-auto max-w-[1880px] px-3 py-3 pb-24 sm:px-4 sm:py-4 sm:pb-24 xl:px-5 xl:py-5 xl:pb-8">
-          {children}
+        {mobileMenuOpen ? (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/60"
+              aria-label="Close dashboard menu"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <aside className="absolute inset-y-0 right-0 flex w-72 max-w-[82vw] flex-col border-l border-zinc-800 bg-gradient-to-b from-zinc-900 to-black pt-20 shadow-2xl">
+              {nav}
+            </aside>
+          </div>
+        ) : null}
+
+        <main className="min-w-0 flex-1 overflow-auto">
+          <div className="mx-auto max-w-[1600px] px-4 pb-8 pt-20 sm:px-6 lg:px-8 lg:pt-8">
+            {children}
+          </div>
         </main>
 
         <GlobalRefreshSnapshotButton />
-
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-700/40 bg-[#0b1016]/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur-xl xl:hidden">
-          <div className="mx-auto grid max-w-[1880px] grid-cols-5 gap-2">
-            {MOBILE_NAV_ITEMS.map((item) => {
-              const active = isActive(pathname, item.href);
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={[
-                    "flex min-h-10 items-center justify-center rounded-xl px-2 text-[10px] font-medium transition",
-                    active
-                      ? "border border-[rgba(60,163,123,0.24)] bg-[rgba(60,163,123,0.1)] text-[var(--accent-strong)]"
-                      : "border border-slate-700/40 bg-slate-900/45 text-slate-300",
-                  ].join(" ")}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
       </div>
     </div>
   );

@@ -48,14 +48,22 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const range = searchParams.get("range") ?? "30d";
+    const modeParam = (searchParams.get("mode") ?? "live").toLowerCase();
+    const includeAllModes = modeParam === "all";
+    const mode = modeParam === "paper" ? "paper" : "live";
     const startDate = startDateFromRange(range);
 
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("trade_history")
       .select("id, symbol, side, qty, entry_price, exit_price, realized_pl, source, trade_day, opened_at, closed_at, external_trade_id")
-      .eq("source", "brother_live")
       .gte("trade_day", startDate)
       .order("trade_day", { ascending: false });
+
+    if (!includeAllModes) {
+      query = query.eq("mode", mode);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return auth.applyCookies(

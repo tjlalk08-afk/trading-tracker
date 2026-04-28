@@ -12,6 +12,14 @@ type AuthorizedRequest = {
   applyCookies(response: NextResponse): NextResponse;
 };
 
+const ingestDebugEnabled = process.env.INGEST_DEBUG === "1";
+
+function debugIngest(message: string) {
+  if (ingestDebugEnabled) {
+    console.info(message);
+  }
+}
+
 async function authorizeRequest(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const expected = process.env.CRON_SECRET
@@ -322,17 +330,30 @@ function extractCompletedTrades(
     ? payload.closed_trades_test
     : [];
 
+  debugIngest(
+    `[extractCompletedTrades] Found ${liveRaw.length} live trades and ${testRaw.length} test trades`,
+  );
+
   const normalized = [
     ...liveRaw.map((trade) => normalizeTrade(trade, "live", snapshotMode, snapshotDate)),
     ...testRaw.map((trade) => normalizeTrade(trade, "test", snapshotMode, snapshotDate)),
   ].filter((trade): trade is TradeHistoryInsert => trade !== null);
+
+  debugIngest(
+    `[extractCompletedTrades] After normalization: ${normalized.length} valid trades`,
+  );
 
   const deduped = new Map<string, TradeHistoryInsert>();
   for (const trade of normalized) {
     deduped.set(trade.external_trade_id, trade);
   }
 
-  return Array.from(deduped.values());
+  const result = Array.from(deduped.values());
+  debugIngest(
+    `[extractCompletedTrades] After deduplication: ${result.length} unique trades`,
+  );
+
+  return result;
 }
 
 async function handleIngest() {
@@ -355,6 +376,10 @@ async function handleIngest() {
 
   const trades = extractCompletedTrades(upstream, snapshot.mode, snapshot.snapshotDate);
 
+  debugIngest(
+    `[handleIngest] Extracted ${trades.length} trades for mode ${snapshot.mode}`,
+  );
+
   let upsertedTrades = 0;
 
   if (trades.length > 0) {
@@ -374,6 +399,8 @@ async function handleIngest() {
       external_trade_id: trade.external_trade_id,
     }));
 
+    debugIngest(`[handleIngest] Upserting ${tradeHistoryRows.length} trade rows`);
+
     const { error: tradeError } = await supabaseAdmin
       .from("trade_history")
       .upsert(tradeHistoryRows as never, {
@@ -385,6 +412,9 @@ async function handleIngest() {
     }
 
     upsertedTrades = trades.length;
+    debugIngest(`[handleIngest] Successfully upserted ${upsertedTrades} trades`);
+  } else {
+    debugIngest("[handleIngest] No trades to upsert");
   }
 
   return NextResponse.json({
